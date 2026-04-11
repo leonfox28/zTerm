@@ -1,0 +1,250 @@
+.workbench {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  grid-template-rows: var(--titlebar-height) 1fr var(--statusbar-height);
+  grid-template-areas:
+    "titlebar    titlebar titlebar    titlebar"
+    "activitybar sidebar  main        auxiliarybar"
+    "statusbar   statusbar statusbar  statusbar";
+}
+
+/* ===== Title Bar ===== */
+.titlebar {
+  grid-area: titlebar;
+  background: var(--bg-titlebar);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: drag;
+  user-select: none;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.titlebar__title {
+  font-size: 12px;
+  color: var(--text-titlebar);
+  font-weight: 400;
+}
+
+/* ===== Activity Bar ===== */
+.activitybar {
+  grid-area: activitybar;
+  background: var(--bg-activitybar);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 4px;
+  border-right: 1px solid var(--border-color);
+}
+
+.activitybar__top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.activitybar__bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 4px;
+}
+
+.activitybar__item {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--activitybar-fg-inactive);
+  transition: color 0.1s;
+}
+
+.activitybar__item:hover {
+  color: var(--activitybar-fg-active);
+}
+
+.activitybar__item--active {
+  color: var(--activitybar-fg-active);
+}
+
+.activitybar__item--active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 24px;
+  background: var(--activitybar-fg-active);
+  border-radius: 0 1px 1px 0;
+}
+
+.activitybar__item .codicon {
+  font-size: 24px !important;
+}
+
+/* ===== Main Area ===== */
+.main-area {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-editor);
+}
+
+/* ===== Sidebar (Primary) ===== */
+.sidebar {
+  grid-area: sidebar;
+  background: var(--bg-sidebar);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border-color);
+}
+
+.sidebar__header {
+  display: flex;
+  align-items: center;
+  height: 35px;
+  padding: 0 8px 0 20px;
+  flex-shrink: 0;
+}
+
+.sidebar__title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fg-sidebar-title);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: 1;
+}
+
+.sidebar__actions {
+  display: flex;
+  align-items: center;
+}
+
+.sidebar__action {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  cursor: pointer;
+  color: var(--fg-sidebar-title);
+}
+
+.sidebar__action:hover {
+  background: var(--bg-hover);
+  color: var(--fg-sidebar);
+}
+
+.sidebar__action .codicon {
+  font-size: 16px !important;
+}
+
+.sidebar__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 0 4px;
+}
+
+/* ===== Auxiliary Sidebar ===== */
+.auxiliarybar {
+  grid-area: auxiliarybar;
+  background: var(--bg-sidebar);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid var(--border-color);
+}
+
+.auxiliarybar__header {
+  display: flex;
+  align-items: center;
+  height: 35px;
+  padding: 0 20px;
+  flex-shrink: 0;
+}
+
+.auxiliarybar__title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--fg-sidebar-title);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.auxiliarybar__content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ===== Status Bar ===== */
+.statusbar {
+  grid-area: statusbar;
+  background: var(--bg-statusbar);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--fg-statusbar);
+}
+
+.statusbar__left {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.statusbar__right {
+  display: flex;
+  align-items: center;
+}
+
+.statusbar__item {
+  display: flex;
+  align-items: center;
+  padding: 0 5px;
+  height: 100%;
+  cursor: pointer;
+  gap: 4px;
+}
+
+.statusbar__item:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.statusbar__item .codicon {
+  font-size: 14px;
+}
+
+/* ===== Sash (Resize Handle) ===== */
+.sash {
+  position: absolute;
+  z-index: 35;
+}
+
+.sash--vertical {
+  grid-area: sidebar;
+  width: 4px;
+  height: 100%;
+  cursor: col-resize;
+  justify-self: end;
+  position: relative;
+}
+
+.sash--vertical:hover {
+  background: var(--focus-border);
+  transition: background 0.15s 0.1s;
+}
+
+.sash--active {
+  background: var(--focus-border) !important;
+}
