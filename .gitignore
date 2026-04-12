@@ -49,3 +49,5 @@ Thumbs.db
 
 # node-pty native binaries (rebuilt per platform)
 node_modules/node-pty/build/
+
+.ccb/
