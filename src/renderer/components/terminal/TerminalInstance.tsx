@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { WebglAddon } from '@xterm/addon-webgl'
+import { darkPlusTheme } from '@shared/config/theme.config'
 import '@xterm/xterm/css/xterm.css'
 
 interface TerminalInstanceProps {
@@ -21,10 +23,10 @@ export function TerminalInstance({ tabId, visible }: TerminalInstanceProps) {
       fontSize: 14,
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",
       theme: {
-        background: '#1e1e1e',
-        foreground: '#cccccc',
-        cursor: '#ffffff',
-        selectionBackground: '#264f78'
+        background: darkPlusTheme.terminalBackground,
+        foreground: darkPlusTheme.terminalForeground,
+        cursor: darkPlusTheme.terminalCursor,
+        selectionBackground: darkPlusTheme.terminalSelectionBackground
       },
       cursorBlink: true
     })
@@ -34,23 +36,34 @@ export function TerminalInstance({ tabId, visible }: TerminalInstanceProps) {
     term.open(containerRef.current)
     fitAddon.fit()
 
+    // Enable WebGL rendering with canvas fallback
+    try {
+      const webglAddon = new WebglAddon()
+      webglAddon.onContextLoss(() => {
+        webglAddon.dispose()
+      })
+      term.loadAddon(webglAddon)
+    } catch {
+      // WebGL not available — canvas renderer is used automatically
+    }
+
     termRef.current = term
     fitAddonRef.current = fitAddon
 
     // Register data listener BEFORE creating PTY so we don't miss initial output
     const removeDataListener = window.terminalApi.onData(
       ({ id: termId, data }: { id: number; data: string }) => {
-      if (termId === ptyIdRef.current) {
-        term.write(data)
-      }
+        if (termId === ptyIdRef.current) {
+          term.write(data)
+        }
       }
     )
 
     const removeExitListener = window.terminalApi.onExit(
       ({ id: termId }: { id: number; code: number | undefined }) => {
-      if (termId === ptyIdRef.current) {
-        term.write('\r\n[Process exited]')
-      }
+        if (termId === ptyIdRef.current) {
+          term.write('\r\n[Process exited]')
+        }
       }
     )
 
