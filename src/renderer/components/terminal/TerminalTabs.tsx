@@ -3,12 +3,21 @@ import { useTerminalStore } from '../../stores/terminal.store'
 import '../../styles/terminal.css'
 
 export function TerminalTabs() {
-  const { tabs, activeTabId, setActiveTab, removeTab } = useTerminalStore()
+  const tabs = useTerminalStore((state) => state.tabs)
+  const activeTabId = useTerminalStore((state) => state.activeTabId)
+  const setActiveTab = useTerminalStore((state) => state.setActiveTab)
+  const removeTab = useTerminalStore((state) => state.removeTab)
+  const splitActivePane = useTerminalStore((state) => state.splitActivePane)
   const scrollRef = useRef<HTMLDivElement>(null)
   const activeTabRef = useRef<HTMLDivElement>(null)
 
   const handleNewTab = () => {
     window.dispatchEvent(new CustomEvent('zterm:new-terminal'))
+  }
+
+  const handleSplit = (direction: 'horizontal' | 'vertical') => {
+    if (activeTabId === null) return
+    splitActivePane(activeTabId, direction)
   }
 
   // 当 activeTabId 变化时，将激活的 tab 滚动进可见区域（完整显示）
@@ -66,6 +75,16 @@ export function TerminalTabs() {
         ))}
       </div>
       <div className="terminal-tabs__actions">
+        <div
+          className="terminal-tabs__action"
+          onClick={() => handleSplit('vertical')}
+          title="Split Left/Right"
+        >
+          <i className="codicon codicon-split-horizontal" />
+        </div>
+        <div className="terminal-tabs__action" onClick={() => handleSplit('horizontal')} title="Split Up/Down">
+          <i className="codicon codicon-split-vertical" />
+        </div>
         <div className="terminal-tabs__action" onClick={handleNewTab} title="New Terminal">
           <i className="codicon codicon-plus" />
         </div>

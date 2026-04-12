@@ -151,7 +151,9 @@ terminalApi.create({ cols, rows }) → IPC → PtyService.spawn()
 
 ### Phase 1 剩余事项
 
-- [ ] 终端分屏（水平 / 垂直）
+- [x] 终端分屏（水平 / 垂直 split、pane resize、pane focus、pane close）
+- [x] 共享右键菜单层（可复用 renderer-side context menu host + terminal pane 第一个 consumer）
+- [ ] 右键菜单视觉对齐 VS Code
 - [ ] 基础设置页（字体、主题、shell 路径、是否 login shell）
 - [ ] 快捷键系统
 
@@ -212,11 +214,13 @@ zTerm/
 │   │   ├── env.d.ts
 │   │   ├── components/
 │   │   │   ├── workbench/
-│   │   │   ├── terminal/
+│   │   │   ├── terminal/         # TerminalTabs, TerminalPanel, TerminalPaneTree, TerminalSplitSash, TerminalInstance
+│   │   │   ├── context-menu/     # ContextMenuHost（共享右键菜单 host）
 │   │   │   └── sidebar/
 │   │   ├── stores/
 │   │   │   ├── workbench.store.ts
-│   │   │   ├── terminal.store.ts
+│   │   │   ├── terminal.store.ts     # tab/pane/session/split 树模型
+│   │   │   ├── context-menu.store.ts # 共享菜单状态
 │   │   │   └── connections.store.ts
 │   │   ├── utils/
 │   │   │   └── theme.ts
@@ -224,10 +228,11 @@ zTerm/
 │   │       ├── global.css
 │   │       ├── workbench.css
 │   │       ├── terminal.css
+│   │       ├── context-menu.css  # 共享菜单样式（使用 menu theme token）
 │   │       └── sidebar.css
 │   └── shared/
 │       ├── config/
-│       │   ├── theme.config.ts
+│       │   ├── theme.config.ts   # 含 menu theme token
 │       │   ├── layout.config.ts
 │       │   └── shell.config.ts
 │       ├── ipc-channels.ts

@@ -1,9 +1,11 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useTerminalStore } from '../../stores/terminal.store'
-import { TerminalInstance } from './TerminalInstance'
+import { TerminalPaneTree } from './TerminalPaneTree'
 
 export function TerminalPanel() {
-  const { tabs, activeTabId, addTab } = useTerminalStore()
+  const tabs = useTerminalStore((state) => state.tabs)
+  const activeTabId = useTerminalStore((state) => state.activeTabId)
+  const addTab = useTerminalStore((state) => state.addTab)
   const initializedRef = useRef(false)
 
   const createTerminal = useCallback(() => {
@@ -17,7 +19,9 @@ export function TerminalPanel() {
   useEffect(() => {
     if (!initializedRef.current) {
       initializedRef.current = true
-      createTerminal()
+      if (useTerminalStore.getState().tabs.length === 0) {
+        createTerminal()
+      }
     }
   }, [createTerminal])
 
@@ -31,7 +35,17 @@ export function TerminalPanel() {
   return (
     <div className="terminal-panel">
       {tabs.map((tab) => (
-        <TerminalInstance key={tab.id} tabId={tab.id} visible={tab.id === activeTabId} />
+        <div
+          className={`terminal-panel__tab-content ${tab.id === activeTabId ? '' : 'terminal-panel__tab-content--hidden'}`}
+          key={tab.id}
+        >
+          <TerminalPaneTree
+            activePaneId={tab.activePaneId}
+            rootPaneId={tab.rootPaneId}
+            tabId={tab.id}
+            visible={tab.id === activeTabId}
+          />
+        </div>
       ))}
     </div>
   )

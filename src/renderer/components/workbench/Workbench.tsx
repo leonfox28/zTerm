@@ -5,6 +5,7 @@ import { Sash } from './Sash'
 import { MainArea } from './MainArea'
 import { AuxiliarySidebar } from './AuxiliarySidebar'
 import { StatusBar } from './StatusBar'
+import { ContextMenuHost } from '../context-menu/ContextMenuHost'
 import { useWorkbenchStore } from '../../stores/workbench.store'
 import '../../styles/workbench.css'
 
@@ -28,6 +29,7 @@ export function Workbench() {
       <MainArea />
       <AuxiliarySidebar />
       <StatusBar />
+      <ContextMenuHost />
     </div>
   )
 }

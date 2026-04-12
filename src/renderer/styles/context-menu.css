@@ -1,0 +1,62 @@
+/* Fade-in animation matching VS Code */
+@keyframes contextMenuFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 160px;
+  padding: 4px 0;
+  border: 1px solid var(--menu-border);
+  border-radius: 8px;
+  background: var(--menu-background);
+  color: var(--menu-foreground);
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.36), 0 0 12px rgba(0, 0, 0, 0.2);
+  animation: contextMenuFadeIn 0.083s linear;
+  overflow: hidden;
+}
+
+.context-menu__item {
+  width: calc(100% - 8px);
+  margin: 0 4px;
+  display: flex;
+  align-items: center;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.context-menu__item:hover:not(:disabled),
+.context-menu__item:focus-visible {
+  background: var(--menu-selection-background);
+  color: var(--menu-selection-foreground);
+  outline: none;
+}
+
+.context-menu__item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.context-menu__item-label {
+  flex: 1 1 auto;
+  padding: 0 10px;
+}
+
+.context-menu__separator {
+  height: 0;
+  margin: 5px 0;
+  border: none;
+  border-bottom: 1px solid var(--menu-separator-background);
+}

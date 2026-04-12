@@ -1,5 +1,3 @@
-import { IShellOptions } from './terminal'
-
 export interface ISettings {
   fontSize: number
   fontFamily: string

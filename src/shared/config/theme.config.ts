@@ -43,6 +43,14 @@ export interface ITheme {
   bgActive: string
   focusBorder: string
 
+  // Menus
+  menuBackground: string
+  menuForeground: string
+  menuSelectionBackground: string
+  menuSelectionForeground: string
+  menuBorder: string
+  menuSeparatorBackground: string
+
   // Terminal
   terminalBackground: string
   terminalForeground: string
@@ -89,6 +97,14 @@ export const darkPlusTheme: ITheme = {
   bgHover: 'rgba(90, 93, 94, 0.31)',
   bgActive: 'rgba(255, 255, 255, 0.12)',
   focusBorder: '#007fd4',
+
+  // Menus
+  menuBackground: '#252526',
+  menuForeground: '#cccccc',
+  menuSelectionBackground: '#0078d4',
+  menuSelectionForeground: '#ffffff',
+  menuBorder: '#454545',
+  menuSeparatorBackground: '#454545',
 
   // Terminal
   terminalBackground: '#1e1e1e',

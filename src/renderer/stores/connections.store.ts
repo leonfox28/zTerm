@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { IConnectionItem as StoredConnectionItem, IConnectionFolder as StoredConnectionFolder } from '@shared/types/store'
+import { IConnectionFolder as StoredConnectionFolder } from '@shared/types/store'
 
 export interface ConnectionItem {
   id: string
@@ -44,7 +44,7 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
 
   init: async () => {
     if (get().initialized) return
-    const stored = await window.storeApi.get('connectionFolders')
+    const stored: StoredConnectionFolder[] = await window.storeApi.get('connectionFolders')
     if (stored && stored.length > 0) {
       const folders: ConnectionFolder[] = stored.map((f) => ({
         id: f.id,
@@ -53,7 +53,7 @@ export const useConnectionsStore = create<ConnectionsState>((set, get) => ({
         children: []
       }))
       // Update nextFolderId to avoid collisions
-      const maxId = stored.reduce((max, f) => {
+      const maxId = stored.reduce<number>((max, f) => {
         const num = parseInt(f.id.replace('folder-', ''), 10)
         return isNaN(num) ? max : Math.max(max, num)
       }, 0)
