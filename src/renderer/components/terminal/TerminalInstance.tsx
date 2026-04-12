@@ -38,20 +38,24 @@ export function TerminalInstance({ tabId, visible }: TerminalInstanceProps) {
     fitAddonRef.current = fitAddon
 
     // Register data listener BEFORE creating PTY so we don't miss initial output
-    const removeDataListener = window.terminalApi.onData(({ id: termId, data }) => {
+    const removeDataListener = window.terminalApi.onData(
+      ({ id: termId, data }: { id: number; data: string }) => {
       if (termId === ptyIdRef.current) {
         term.write(data)
       }
-    })
+      }
+    )
 
-    const removeExitListener = window.terminalApi.onExit(({ id: termId }) => {
+    const removeExitListener = window.terminalApi.onExit(
+      ({ id: termId }: { id: number; code: number | undefined }) => {
       if (termId === ptyIdRef.current) {
         term.write('\r\n[Process exited]')
       }
-    })
+      }
+    )
 
     // Now create the PTY
-    window.terminalApi.create({ cols: term.cols, rows: term.rows }).then((ptyId) => {
+    window.terminalApi.create({ cols: term.cols, rows: term.rows }).then((ptyId: number) => {
       ptyIdRef.current = ptyId
 
       // Send input to PTY
