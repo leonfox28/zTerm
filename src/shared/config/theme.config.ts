@@ -1,6 +1,6 @@
 /**
  * Theme definition for zTerm UI and terminal colors.
- * CSS variable names are derived from property keys: camelCase → kebab-case with  prefix.
+ * CSS variable names are derived from property keys: camelCase → kebab-case with `--` prefix.
  * e.g. bgEditor → --bg-editor
  */
 export interface ITheme {
