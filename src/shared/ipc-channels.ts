@@ -4,5 +4,8 @@ export const IPC_CHANNELS = {
   TERMINAL_RESIZE: 'terminal:resize',
   TERMINAL_KILL: 'terminal:kill',
   TERMINAL_DATA: 'terminal:data',
-  TERMINAL_EXIT: 'terminal:exit'
+  TERMINAL_EXIT: 'terminal:exit',
+  STORE_GET: 'store:get',
+  STORE_SET: 'store:set',
+  STORE_GET_ALL: 'store:getAll'
 } as const

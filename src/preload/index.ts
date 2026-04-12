@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
 import { IShellOptions } from '@shared/types/terminal'
+import { IStoreSchema } from '@shared/types/store'
 
 const terminalApi = {
   create: (options: IShellOptions): Promise<number> => {
@@ -30,6 +31,20 @@ const terminalApi = {
   }
 }
 
+const storeApi = {
+  get: <K extends keyof IStoreSchema>(key: K): Promise<IStoreSchema[K]> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.STORE_GET, key)
+  },
+  set: <K extends keyof IStoreSchema>(key: K, value: IStoreSchema[K]): void => {
+    ipcRenderer.send(IPC_CHANNELS.STORE_SET, { key, value })
+  },
+  getAll: (): Promise<IStoreSchema> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.STORE_GET_ALL)
+  }
+}
+
 contextBridge.exposeInMainWorld('terminalApi', terminalApi)
+contextBridge.exposeInMainWorld('storeApi', storeApi)
 
 export type TerminalApi = typeof terminalApi
+export type StoreApi = typeof storeApi

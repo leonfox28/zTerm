@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { LAYOUT } from '@shared/config/layout.config'
 
 interface WorkbenchState {
   sidebarVisible: boolean
@@ -11,16 +12,16 @@ interface WorkbenchState {
 
 export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   sidebarVisible: true,
-  sidebarWidth: 240,
+  sidebarWidth: LAYOUT.sidebar.defaultWidth,
   activeViewId: 'terminal',
 
   toggleSidebar: () => set((state) => ({ sidebarVisible: !state.sidebarVisible })),
 
   setSidebarWidth: (width) => {
-    if (width < 120) {
+    if (width < LAYOUT.sidebar.autoHideThreshold) {
       set({ sidebarVisible: false })
     } else {
-      const clamped = Math.max(170, Math.min(500, width))
+      const clamped = Math.max(LAYOUT.sidebar.minWidth, Math.min(LAYOUT.sidebar.maxWidth, width))
       set({ sidebarWidth: clamped, sidebarVisible: true })
     }
   },

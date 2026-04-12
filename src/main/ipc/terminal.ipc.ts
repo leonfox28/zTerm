@@ -1,12 +1,15 @@
 import { ipcMain, BrowserWindow } from 'electron'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
 import { IShellOptions } from '@shared/types/terminal'
-import { PtyService } from '../services/pty.service'
+import { ITerminalService } from '@shared/types/services'
 
-export function registerTerminalIpc(ptyService: PtyService, getWindow: () => BrowserWindow | null) {
+export function registerTerminalIpc(
+  terminalService: ITerminalService,
+  getWindow: () => BrowserWindow | null
+) {
   ipcMain.handle(IPC_CHANNELS.TERMINAL_CREATE, (_event, options: IShellOptions) => {
     const win = getWindow()
-    const id = ptyService.spawn(
+    const id = terminalService.spawn(
       options,
       (termId, data) => {
         if (!win?.isDestroyed()) {
@@ -23,17 +26,17 @@ export function registerTerminalIpc(ptyService: PtyService, getWindow: () => Bro
   })
 
   ipcMain.on(IPC_CHANNELS.TERMINAL_WRITE, (_event, { id, data }: { id: number; data: string }) => {
-    ptyService.write(id, data)
+    terminalService.write(id, data)
   })
 
   ipcMain.on(
     IPC_CHANNELS.TERMINAL_RESIZE,
     (_event, { id, cols, rows }: { id: number; cols: number; rows: number }) => {
-      ptyService.resize(id, cols, rows)
+      terminalService.resize(id, cols, rows)
     }
   )
 
   ipcMain.on(IPC_CHANNELS.TERMINAL_KILL, (_event, { id }: { id: number }) => {
-    ptyService.kill(id)
+    terminalService.kill(id)
   })
 }

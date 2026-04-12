@@ -1,10 +1,13 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { PtyService } from './services/pty.service'
+import { StoreService } from './services/store.service'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
+import { registerStoreIpc } from './ipc/store.ipc'
 
 let mainWindow: BrowserWindow | null = null
 const ptyService = new PtyService()
+const storeService = new StoreService()
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -29,6 +32,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   registerTerminalIpc(ptyService, () => mainWindow)
+  registerStoreIpc(storeService)
   createWindow()
 
   app.on('activate', () => {

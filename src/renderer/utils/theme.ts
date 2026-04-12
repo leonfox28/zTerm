@@ -7,7 +7,7 @@ import { ITheme } from '@shared/config/theme.config'
  *      "terminalBackground" → "--terminal-background"
  */
 function toCssVar(key: string): string {
-  return '--' + key.replace(/([A-Z])/g, '-').toLowerCase()
+  return '--' + key.replace(/([A-Z])/g, '-$1').toLowerCase()
 }
 
 /**

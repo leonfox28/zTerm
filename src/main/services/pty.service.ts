@@ -1,8 +1,10 @@
 import * as pty from 'node-pty'
 import { IShellOptions } from '@shared/types/terminal'
+import { ITerminalService } from '@shared/types/services'
+import { SHELL_DEFAULTS } from '@shared/config/shell.config'
 import os from 'os'
 
-export class PtyService {
+export class PtyService implements ITerminalService {
   private processes = new Map<number, pty.IPty>()
   private nextId = 1
 
@@ -20,10 +22,11 @@ export class PtyService {
   ): number {
     const id = this.nextId++
     const shell = options.shell || this.getDefaultShell()
+    const args = SHELL_DEFAULTS.loginShell ? ['-l'] : []
 
     const cwd = options.cwd || os.homedir()
 
-    const proc = pty.spawn(shell, ['-l'], {
+    const proc = pty.spawn(shell, args, {
       name: 'xterm-256color',
       cols: options.cols,
       rows: options.rows,
