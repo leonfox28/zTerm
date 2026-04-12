@@ -1,53 +1,12 @@
 @import '@vscode/codicons/dist/codicon.css';
 
 :root {
-  /* VS Code Dark+ exact colors */
+  /* Layout dimensions — structural constants, not theme-dependent */
   --titlebar-height: 38px;
   --activitybar-width: 48px;
   --statusbar-height: 22px;
   --sidebar-width: 240px;
   --auxiliarybar-width: 240px;
-
-  /* Title Bar */
-  --bg-titlebar: #3c3c3c;
-  --text-titlebar: #cccccc;
-
-  /* Activity Bar */
-  --bg-activitybar: #333333;
-  --activitybar-fg-active: #ffffff;
-  --activitybar-fg-inactive: rgba(255, 255, 255, 0.4);
-  --activitybar-badge-bg: #007acc;
-
-  /* Editor / Terminal area */
-  --bg-editor: #1e1e1e;
-  --fg-editor: #d4d4d4;
-
-  /* Tabs */
-  --bg-tabs-container: #252526;
-  --bg-tab-active: #1e1e1e;
-  --bg-tab-inactive: #2d2d2d;
-  --fg-tab-active: #ffffff;
-  --fg-tab-inactive: rgba(255, 255, 255, 0.5);
-  --tab-border: #252526;
-  --tab-active-border-bottom: #1e1e1e;
-  --tab-active-border-top: #007acc;
-
-  /* Sidebar */
-  --bg-sidebar: #252526;
-  --fg-sidebar: #cccccc;
-  --fg-sidebar-title: #bbbbbb;
-
-  /* Status Bar */
-  --bg-statusbar: #007acc;
-  --fg-statusbar: #ffffff;
-
-  /* Borders */
-  --border-color: #414141;
-
-  /* General */
-  --bg-hover: rgba(90, 93, 94, 0.31);
-  --bg-active: rgba(255, 255, 255, 0.12);
-  --focus-border: #007fd4;
 }
 
 * {
