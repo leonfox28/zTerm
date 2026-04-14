@@ -1,15 +1,22 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
-import { darkPlusTheme } from '@shared/config/theme.config'
+import { getThemeById } from '@shared/config/theme.config'
 import { applyTheme } from './utils/theme'
+import { DEFAULT_SETTINGS } from '@shared/types/store'
 import './styles/global.css'
 
-// Apply theme CSS variables before React renders to avoid FOUC
-applyTheme(darkPlusTheme)
+async function bootstrap() {
+  const storedSettings = await window.storeApi.get('settings').catch(() => undefined)
+  const themeId = storedSettings?.theme ?? DEFAULT_SETTINGS.theme
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-)
+  applyTheme(getThemeById(themeId))
+
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  )
+}
+
+void bootstrap()

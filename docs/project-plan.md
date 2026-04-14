@@ -109,6 +109,8 @@ terminalApi.create({ cols, rows }) → IPC → PtyService.spawn()
 └────────────────────────────────────────────────────────┘
 ```
 
+另有一个**完整主区设置页**：通过 Activity Bar 底部 gear 进入，显示独立 Settings 页面；该页面下不显示终端专属左右栏，返回终端页通过活动栏图标切换。
+
 ### 4.2 当前交互（已实现）
 
 - Sidebar 可点击活动栏图标折叠 / 展开
@@ -120,10 +122,11 @@ terminalApi.create({ cols, rows }) → IPC → PtyService.spawn()
 ### 4.3 主题与 CSS 变量体系
 
 - 主题定义在 `src/shared/config/theme.config.ts`
-- renderer 启动时通过 `applyTheme(darkPlusTheme)` 注入颜色变量到 `:root`
+- renderer 启动时会先读取持久化 `settings`，再通过 `applyTheme(getThemeById(settings.theme))` 注入颜色变量到 `:root`
 - `src/renderer/styles/global.css` 中仅保留布局尺寸变量
 - CSS 颜色消费统一使用 `var(--bg-editor)` / `var(--fg-editor)` 这类变量
 - `src/renderer/utils/theme.ts` 的 `toCssVar()` 已修复，当前是正确状态
+- `src/renderer/stores/settings.store.ts` 负责 settings 初始化、持久化与即时应用
 
 ---
 
@@ -153,8 +156,8 @@ terminalApi.create({ cols, rows }) → IPC → PtyService.spawn()
 
 - [x] 终端分屏（水平 / 垂直 split、pane resize、pane focus、pane close）
 - [x] 共享右键菜单层（可复用 renderer-side context menu host + terminal pane 第一个 consumer）
-- [ ] 右键菜单视觉对齐 VS Code
-- [ ] 基础设置页（字体、主题、shell 路径、是否 login shell）
+- [x] 右键菜单视觉对齐 VS Code
+- [x] 基础设置页（完整 Settings 页面、字体下拉、主题、shell 路径、是否 login shell、设置持久化与启动恢复）
 - [ ] 快捷键系统
 
 ### Phase 2：SSH 连接
@@ -202,6 +205,7 @@ zTerm/
 │   │   ├── main.ts
 │   │   ├── services/
 │   │   │   ├── pty.service.ts
+│   │   │   ├── shell-launch.ts
 │   │   │   └── store.service.ts
 │   │   └── ipc/
 │   │       ├── terminal.ipc.ts
@@ -215,11 +219,13 @@ zTerm/
 │   │   ├── components/
 │   │   │   ├── workbench/
 │   │   │   ├── terminal/         # TerminalTabs, TerminalPanel, TerminalPaneTree, TerminalSplitSash, TerminalInstance
+│   │   │   ├── settings/         # SettingsView
 │   │   │   ├── context-menu/     # ContextMenuHost（共享右键菜单 host）
 │   │   │   └── sidebar/
 │   │   ├── stores/
 │   │   │   ├── workbench.store.ts
 │   │   │   ├── terminal.store.ts     # tab/pane/session/split 树模型
+│   │   │   ├── settings.store.ts     # settings 初始化、持久化、即时应用
 │   │   │   ├── context-menu.store.ts # 共享菜单状态
 │   │   │   └── connections.store.ts
 │   │   ├── utils/
@@ -228,6 +234,7 @@ zTerm/
 │   │       ├── global.css
 │   │       ├── workbench.css
 │   │       ├── terminal.css
+│   │       ├── settings.css
 │   │       ├── context-menu.css  # 共享菜单样式（使用 menu theme token）
 │   │       └── sidebar.css
 │   └── shared/
@@ -280,7 +287,14 @@ zTerm/
 
 ---
 
-## 9. 参考资源
+## 9. 规划入口说明
+
+- 当前新的规划与实现主入口：`openspec/changes/migrate-superpowers-to-openspec/`
+- `docs/superpowers/` 保留为历史规划记录，仅作背景参考，不再作为新实现的主规范来源
+
+---
+
+## 10. 参考资源
 
 - VS Code 源码：`/Users/huyuanzhe/prj-code/vscode`
   - 终端：`src/vs/workbench/contrib/terminal/`

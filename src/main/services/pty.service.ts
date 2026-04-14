@@ -1,8 +1,8 @@
 import * as pty from 'node-pty'
 import { IShellOptions } from '@shared/types/terminal'
 import { ITerminalService } from '@shared/types/services'
-import { SHELL_DEFAULTS } from '@shared/config/shell.config'
 import os from 'os'
+import { resolveShellLaunch } from './shell-launch'
 
 export class PtyService implements ITerminalService {
   private processes = new Map<number, pty.IPty>()
@@ -21,8 +21,7 @@ export class PtyService implements ITerminalService {
     onExit: (id: number, code: number | undefined) => void
   ): number {
     const id = this.nextId++
-    const shell = options.shell || this.getDefaultShell()
-    const args = SHELL_DEFAULTS.loginShell ? ['-l'] : []
+    const { shell, args } = resolveShellLaunch(options, () => this.getDefaultShell())
 
     const cwd = options.cwd || os.homedir()
 

@@ -9,20 +9,25 @@ export function registerTerminalIpc(
 ) {
   ipcMain.handle(IPC_CHANNELS.TERMINAL_CREATE, (_event, options: IShellOptions) => {
     const win = getWindow()
-    const id = terminalService.spawn(
-      options,
-      (termId, data) => {
-        if (!win?.isDestroyed()) {
-          win?.webContents.send(IPC_CHANNELS.TERMINAL_DATA, { id: termId, data })
+
+    try {
+      const id = terminalService.spawn(
+        options,
+        (termId, data) => {
+          if (!win?.isDestroyed()) {
+            win?.webContents.send(IPC_CHANNELS.TERMINAL_DATA, { id: termId, data })
+          }
+        },
+        (termId, code) => {
+          if (!win?.isDestroyed()) {
+            win?.webContents.send(IPC_CHANNELS.TERMINAL_EXIT, { id: termId, code })
+          }
         }
-      },
-      (termId, code) => {
-        if (!win?.isDestroyed()) {
-          win?.webContents.send(IPC_CHANNELS.TERMINAL_EXIT, { id: termId, code })
-        }
-      }
-    )
-    return id
+      )
+      return id
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'Failed to create terminal')
+    }
   })
 
   ipcMain.on(IPC_CHANNELS.TERMINAL_WRITE, (_event, { id, data }: { id: number; data: string }) => {

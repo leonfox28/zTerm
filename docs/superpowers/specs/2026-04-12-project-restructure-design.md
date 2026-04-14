@@ -1,5 +1,7 @@
 # zTerm 项目梳理设计文档
 
+> 历史 superpowers 文档：保留作背景参考。当前新的规划/实现主入口请看 `openspec/changes/migrate-superpowers-to-openspec/`。
+
 > Phase 1.5: 技术债清理 + 结构化准备 + 路线图更新
 
 ---

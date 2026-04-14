@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
-import { darkPlusTheme } from '@shared/config/theme.config'
+import { getThemeById } from '@shared/config/theme.config'
+import { useSettingsStore } from '../../stores/settings.store'
 import '@xterm/xterm/css/xterm.css'
 
 const SPLIT_RESIZE_START_EVENT = 'zterm:split-resize-start'
@@ -24,6 +25,7 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
   const fitFrameRef = useRef<number | null>(null)
   const fitDebounceRef = useRef<number | null>(null)
   const lastFitSizeRef = useRef<{ width: number; height: number } | null>(null)
+  const { fontFamily, fontSize, theme } = useSettingsStore((state) => state.settings)
 
   const clearScheduledFit = useCallback(() => {
     if (fitDebounceRef.current !== null) {
@@ -120,16 +122,21 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
   }, [clearScheduledFit, scheduleFit])
 
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!containerRef.current) {
+      return
+    }
+
+    const initialSettings = useSettingsStore.getState().settings
+    const initialTheme = getThemeById(initialSettings.theme)
 
     const term = new Terminal({
-      fontSize: 14,
-      fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",
+      fontSize: initialSettings.fontSize,
+      fontFamily: initialSettings.fontFamily,
       theme: {
-        background: darkPlusTheme.terminalBackground,
-        foreground: darkPlusTheme.terminalForeground,
-        cursor: darkPlusTheme.terminalCursor,
-        selectionBackground: darkPlusTheme.terminalSelectionBackground
+        background: initialTheme.terminalBackground,
+        foreground: initialTheme.terminalForeground,
+        cursor: initialTheme.terminalCursor,
+        selectionBackground: initialTheme.terminalSelectionBackground
       },
       cursorBlink: true
     })
@@ -142,7 +149,6 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
     termRef.current = term
     performFit(true)
 
-    // Enable WebGL rendering with canvas fallback
     try {
       const webglAddon = new WebglAddon()
       webglAddon.onContextLoss(() => {
@@ -150,10 +156,9 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
       })
       term.loadAddon(webglAddon)
     } catch {
-      // WebGL not available — canvas renderer is used automatically
+      // canvas fallback
     }
 
-    // Register data listener BEFORE creating PTY so we don't miss initial output
     const removeDataListener = window.terminalApi.onData(
       ({ id: termId, data }: { id: number; data: string }) => {
         if (termId === ptyIdRef.current) {
@@ -170,21 +175,33 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
       }
     )
 
-    // Now create the PTY
-    window.terminalApi.create({ cols: term.cols, rows: term.rows }).then((ptyId: number) => {
-      ptyIdRef.current = ptyId
+    window.terminalApi
+      .create({
+        cols: term.cols,
+        rows: term.rows,
+        shell: initialSettings.shellPath.trim() || undefined,
+        loginShell: initialSettings.loginShell
+      })
+      .then((ptyId: number) => {
+        ptyIdRef.current = ptyId
 
-      // Send input to PTY
-      term.onData((data) => {
-        window.terminalApi.write(ptyId, data)
+        term.onData((data) => {
+          if (ptyIdRef.current !== null) {
+            window.terminalApi.write(ptyId, data)
+          }
+        })
+
+        term.onResize(({ cols, rows }) => {
+          if (ptyIdRef.current !== null) {
+            window.terminalApi.resize(ptyId, cols, rows)
+          }
+        })
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        term.writeln(`\r\n[Failed to start terminal: ${message}]`)
       })
 
-      term.onResize(({ cols, rows }) => {
-        window.terminalApi.resize(ptyId, cols, rows)
-      })
-    })
-
-    // Observe container resize
     const resizeObserver = new ResizeObserver(() => {
       if (!visibleRef.current || splitDraggingRef.current) {
         return
@@ -207,7 +224,27 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
     }
   }, [clearScheduledFit, performFit, scheduleFit, sessionId])
 
-  // Re-fit when layout visibility changes and focus the active pane when possible.
+  useEffect(() => {
+    const term = termRef.current
+    if (!term) {
+      return
+    }
+
+    const terminalTheme = getThemeById(theme)
+    term.options.fontFamily = fontFamily
+    term.options.fontSize = fontSize
+    term.options.theme = {
+      background: terminalTheme.terminalBackground,
+      foreground: terminalTheme.terminalForeground,
+      cursor: terminalTheme.terminalCursor,
+      selectionBackground: terminalTheme.terminalSelectionBackground
+    }
+
+    if (visibleRef.current) {
+      scheduleFit(true)
+    }
+  }, [fontFamily, fontSize, scheduleFit, theme])
+
   useEffect(() => {
     if (visible && fitAddonRef.current) {
       setTimeout(() => {

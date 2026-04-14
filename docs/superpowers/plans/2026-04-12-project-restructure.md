@@ -1,5 +1,7 @@
 # zTerm Phase 1.5 Implementation Plan
 
+> 历史 superpowers 文档：保留作背景参考。当前新的规划/实现主入口请看 `openspec/changes/migrate-superpowers-to-openspec/`。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Clean up Phase 1 technical debt, extract hardcoded config into a theme system skeleton, enable WebGL rendering, abstract the service layer for Phase 2 DI, and introduce electron-store for persistence.

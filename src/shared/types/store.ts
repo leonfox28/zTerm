@@ -1,9 +1,11 @@
+import type { ThemeId } from '@shared/config/theme.config'
+
 export interface ISettings {
   fontSize: number
   fontFamily: string
   shellPath: string
   loginShell: boolean
-  theme: string
+  theme: ThemeId
 }
 
 export interface IConnectionItem {

@@ -1,6 +1,8 @@
 # zTerm 开发交接文档
 
 > **单一恢复入口**：在新的 Claude 上下文中，默认只需要先读取这一个文件，就可以继续开发。除非这里明确指出需要补充背景，否则不必先读其他文档。
+>
+> **当前规划主入口**：后续实现与规划默认以 `openspec/changes/migrate-superpowers-to-openspec/` 为准；`docs/superpowers/` 仅作为历史背景参考。
 
 ---
 
@@ -36,11 +38,11 @@
 - **仓库路径**：`/Users/huyuanzhe/prj-code/zTerm`
 - **当前主分支**：`main`
 - **历史 worktree 状态**：`phase-1-5` 已经合并回 `main`，旧 worktree 已移除
-- **当前阶段**：Phase 1 + Phase 1.5 完成，分屏 + 右键菜单（含 VS Code 视觉对齐）已完成并提交
+- **当前阶段**：Phase 1 + Phase 1.5 完成，分屏、共享右键菜单、基础设置页（含 OpenSpec 迁移）已完成
 - **建议下一步优先级**：
-  1. 基础设置页（字体、shell 路径、login shell 开关、主题）
-  2. 快捷键系统
-  3. SSH 连接管理
+  1. 快捷键系统
+  2. SSH 连接管理
+  3. 继续把后续规划从历史 superpowers 文档迁移到新的 OpenSpec change
 - **默认协作约束**：
   - 用中文回复
   - 使用 npm，不用 pnpm
@@ -77,12 +79,15 @@
 | **右键菜单视觉对齐 VS Code**（圆角 8px、项圆角 6px、hover `#0078d4`、淡入动画、尺寸对齐） | ✅ |
 | **菜单去除图标**（纯文字菜单，无 icon 列） | ✅ |
 | **关闭分屏后 refit**（closePane 后通过 `zterm:split-resize-end` 事件强制剩余终端 refit） | ✅ |
+| **基础设置页**（完整 Settings 页面、Dark+/Light+、字体下拉、shell path、login shell） | ✅ |
+| **设置持久化与启动恢复**（settings.store + renderer 启动前恢复主题） | ✅ |
+| **设置页交互对齐**（活动栏进入/返回，设置页下隐藏终端左右栏） | ✅ |
 
 ### 下一步
 
-1. **基础设置页**（字体、shell 路径、login shell 开关、主题）
-2. **快捷键系统**
-3. **SSH 连接管理**
+1. **快捷键系统**
+2. **SSH 连接管理**
+3. **继续补 OpenSpec change / archive 流程**
 
 ---
 
@@ -131,7 +136,7 @@ function toCssVar(key: string): string {
 
 ### Renderer 侧
 
-- `src/renderer/components/workbench/` — Workbench、TitleBar、ActivityBar、Sidebar、Sash、MainArea、AuxiliarySidebar、StatusBar
+- `src/renderer/components/workbench/` — Workbench、TitleBar、ActivityBar、Sidebar、Sash、MainArea、TerminalWorkspace、AuxiliarySidebar、StatusBar
 - `src/renderer/components/terminal/`
   - `TerminalTabs.tsx` — tab 栏（new tab / split / tab 切换 / close）
   - `TerminalPanel.tsx` — tab 内容容器，每个 tab 渲染一个 TerminalPaneTree
@@ -140,10 +145,13 @@ function toCssVar(key: string): string {
   - `TerminalInstance.tsx` — 单个 xterm.js 终端实例，管理 PTY 生命周期、fit、WebGL
 - `src/renderer/components/context-menu/`
   - `ContextMenuHost.tsx` — **共享右键菜单 host**，挂在 Workbench 高层，负责渲染、viewport clamp、outside click / Esc 关闭
+- `src/renderer/components/settings/`
+  - `SettingsView.tsx` — **完整设置页**，通过 Activity Bar gear 进入，终端页 chrome 在该页下隐藏
 - `src/renderer/components/sidebar/ConnectionTree.tsx` — 连接树 UI
 - `src/renderer/stores/`
-  - `workbench.store.ts` — sidebar 状态
+  - `workbench.store.ts` — sidebar 状态 + terminal/settings 主区切换
   - `terminal.store.ts` — tab/pane/session/split 树模型 + addTab/removeTab/splitPane/closePane/resizeSplit
+  - `settings.store.ts` — settings 初始化、持久化、主题应用
   - `connections.store.ts` — 连接数据持久化
   - `context-menu.store.ts` — **共享菜单 zustand store**（open/close + anchor + items）
 - `src/renderer/utils/theme.ts` — 运行时主题变量注入
@@ -151,6 +159,7 @@ function toCssVar(key: string): string {
   - `global.css` — 布局尺寸变量 + codicons
   - `workbench.css` — workbench grid + 各布局组件样式
   - `terminal.css` — tab 栏 + terminal panel + pane tree + split sash 样式
+  - `settings.css` — 设置页样式
   - `sidebar.css` — 连接树
   - `context-menu.css` — **共享菜单样式**（使用通用 menu theme token）
 
@@ -201,13 +210,15 @@ function toCssVar(key: string): string {
   - 分隔线：`border-bottom: 1px solid #454545`、`margin: 5px 0`
 - **样式**：`context-menu.css` 使用通用 `--menu-background`、`--menu-foreground`、`--menu-selection-background` 等 CSS 变量
 
-### 5.4 主题系统
+### 5.4 主题与设置系统
 
-- 主题源：`src/shared/config/theme.config.ts`（ITheme 接口 + darkPlusTheme 值）
-- 启动入口：`src/renderer/main.tsx`
+- 主题源：`src/shared/config/theme.config.ts`（`dark-plus` / `light-plus` + `getThemeById()`）
+- 启动入口：`src/renderer/main.tsx`，会在 React 挂载前先读取持久化 settings 并恢复主题
+- 设置状态：`src/renderer/stores/settings.store.ts` 负责 settings 初始化、持久化、即时应用
 - 注入函数：`src/renderer/utils/theme.ts` 的 `applyTheme()` 遍历 theme 对象，用 `toCssVar()` 转换 key 为 CSS 变量名
 - CSS 消费：`var(--bg-editor)` / `var(--menu-background)` 等
 - menu token：`menuBackground`、`menuForeground`、`menuSelectionBackground`、`menuSelectionForeground`、`menuBorder`、`menuSeparatorBackground`
+- 运行中终端：`TerminalInstance.tsx` 会响应字体/字号/主题变更；`shellPath` / `loginShell` 只作用于新开的终端
 
 ### 5.5 WebGL 渲染
 
@@ -238,7 +249,10 @@ function toCssVar(key: string): string {
   - 本地终端可工作
   - 分屏正常
   - 右键菜单功能正常、视觉对齐 VS Code
-  - 非终端区域主题正常
+  - 设置页可通过活动栏 gear 进入
+  - 设置页下不显示终端左右栏，终端页下正常显示
+  - Theme 切换即时生效，重启后可恢复
+  - 字体下拉、字号、shell path、login shell 设置可工作
 
 ### 当前非阻塞项
 
@@ -248,17 +262,14 @@ function toCssVar(key: string): string {
 
 ## 7. 建议的下一步
 
-### 7.1 基础设置页
+### 7.1 快捷键系统
 
-需要实现一个设置页面，允许用户配置：
-- 终端字体 / 字号
-- Shell 路径
-- Login shell 开关
-- 主题选择
+### 7.2 SSH 连接管理
 
-### 7.2 快捷键系统
+### 7.3 OpenSpec 后续整理
 
-### 7.3 SSH 连接管理
+- 根据当前完成状态执行 `/opsx:archive`
+- 后续新功能优先以新的 OpenSpec change 进入规划，而不是继续追加 `docs/superpowers/`
 
 ---
 
@@ -267,13 +278,13 @@ function toCssVar(key: string): string {
 ### 最简提示词
 
 ```text
-请先读取 docs/handoff.md，并基于其中内容直接继续开发。
+请先读取 docs/handoff.md，并优先以 openspec/changes/migrate-superpowers-to-openspec/ 作为当前规范入口继续工作。
 ```
 
 ### 指定任务
 
 ```text
-请先读取 docs/handoff.md，实现基础设置页。
+请先读取 docs/handoff.md，并基于 openspec/changes/migrate-superpowers-to-openspec/ 继续下一个任务。
 ```
 
 ### 对新的 Claude 的期望行为
@@ -284,7 +295,7 @@ function toCssVar(key: string): string {
 2. 默认认为当前开发目录就是 `/Users/huyuanzhe/prj-code/zTerm`
 3. 所有 UI 实现参考本地 VS Code 源码（路径见第 0 节）
 4. Claude 负责设计/规划/审查，Codex 负责写代码
-5. 只有在需要补充背景时，才继续读取 `docs/project-plan.md` 或 `README.md`
+5. 先看 `openspec/changes/migrate-superpowers-to-openspec/`，只有在需要补充背景时，才继续读取 `docs/project-plan.md` 或 `README.md`
 
 ---
 

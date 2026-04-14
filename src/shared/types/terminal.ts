@@ -3,6 +3,7 @@ export interface IShellOptions {
   rows: number
   cwd?: string
   shell?: string
+  loginShell?: boolean
   env?: Record<string, string>
 }
 

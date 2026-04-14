@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useTerminalStore } from '../../stores/terminal.store'
 import { TerminalPaneTree } from './TerminalPaneTree'
 
-export function TerminalPanel() {
+interface TerminalPanelProps {
+  workspaceVisible: boolean
+}
+
+export function TerminalPanel({ workspaceVisible }: TerminalPanelProps) {
   const tabs = useTerminalStore((state) => state.tabs)
   const activeTabId = useTerminalStore((state) => state.activeTabId)
   const addTab = useTerminalStore((state) => state.addTab)
@@ -43,7 +47,7 @@ export function TerminalPanel() {
             activePaneId={tab.activePaneId}
             rootPaneId={tab.rootPaneId}
             tabId={tab.id}
-            visible={tab.id === activeTabId}
+            visible={workspaceVisible && tab.id === activeTabId}
           />
         </div>
       ))}

@@ -10,24 +10,27 @@ import { useWorkbenchStore } from '../../stores/workbench.store'
 import '../../styles/workbench.css'
 
 export function Workbench() {
-  const { sidebarVisible, sidebarWidth } = useWorkbenchStore()
+  const { activeMainView, sidebarVisible, sidebarWidth } = useWorkbenchStore()
+  const showTerminalChrome = activeMainView === 'terminal'
 
-  const gridTemplateColumns = sidebarVisible
-    ? `var(--activitybar-width) ${sidebarWidth}px 1fr var(--auxiliarybar-width)`
-    : `var(--activitybar-width) 0px 1fr var(--auxiliarybar-width)`
+  const gridTemplateColumns = showTerminalChrome
+    ? sidebarVisible
+      ? `var(--activitybar-width) ${sidebarWidth}px 1fr var(--auxiliarybar-width)`
+      : `var(--activitybar-width) 0px 1fr var(--auxiliarybar-width)`
+    : `var(--activitybar-width) 0px 1fr 0px`
 
   return (
     <div className="workbench" style={{ gridTemplateColumns }}>
       <TitleBar />
       <ActivityBar />
-      {sidebarVisible && (
+      {showTerminalChrome && sidebarVisible && (
         <>
           <Sidebar />
           <Sash />
         </>
       )}
       <MainArea />
-      <AuxiliarySidebar />
+      {showTerminalChrome && <AuxiliarySidebar />}
       <StatusBar />
       <ContextMenuHost />
     </div>
