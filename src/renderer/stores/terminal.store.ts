@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 export type SplitDirection = 'horizontal' | 'vertical'
+export type TerminalSessionKind = 'local' | 'ssh'
 
 export interface TerminalTab {
   id: number
@@ -12,6 +13,8 @@ export interface TerminalTab {
 export interface TerminalSession {
   id: string
   title: string
+  kind: TerminalSessionKind
+  connectionId?: string
 }
 
 export interface TerminalLeafPane {
@@ -35,7 +38,7 @@ interface TerminalState {
   activeTabId: number | null
   panes: Record<string, TerminalPaneNode>
   sessions: Record<string, TerminalSession>
-  addTab: (id: number, title?: string) => void
+  addTab: (id: number, title?: string, sessionOptions?: { kind?: TerminalSessionKind; connectionId?: string }) => void
   removeTab: (id: number) => void
   setActiveTab: (id: number) => void
   renameTab: (id: number, title: string) => void
@@ -173,7 +176,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
   panes: {},
   sessions: {},
 
-  addTab: (id, title) =>
+  addTab: (id, title, sessionOptions) =>
     set((state) => {
       const tabTitle = title ?? `Terminal ${id}`
       const sessionId = createSessionId()
@@ -202,7 +205,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           ...state.sessions,
           [sessionId]: {
             id: sessionId,
-            title: tabTitle
+            title: tabTitle,
+            kind: sessionOptions?.kind ?? 'local',
+            connectionId: sessionOptions?.connectionId
           }
         }
       }
@@ -234,6 +239,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
         return state
       }
 
+      const sourceSession = state.sessions[targetPane.sessionId]
       const newSessionId = createSessionId()
       const newPaneId = createPaneId()
       const newSplitId = createPaneId()
@@ -284,7 +290,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           ...state.sessions,
           [newSessionId]: {
             id: newSessionId,
-            title: tab.title
+            title: sourceSession?.title ?? tab.title,
+            kind: sourceSession?.kind ?? 'local',
+            connectionId: sourceSession?.connectionId
           }
         }
       }

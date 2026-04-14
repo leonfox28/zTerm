@@ -6,32 +6,35 @@ import { MainArea } from './MainArea'
 import { AuxiliarySidebar } from './AuxiliarySidebar'
 import { StatusBar } from './StatusBar'
 import { ContextMenuHost } from '../context-menu/ContextMenuHost'
+import { SshConnectionDialog } from '../connections/SshConnectionView'
 import { useWorkbenchStore } from '../../stores/workbench.store'
 import '../../styles/workbench.css'
 
 export function Workbench() {
   const { activeMainView, sidebarVisible, sidebarWidth } = useWorkbenchStore()
-  const showTerminalChrome = activeMainView === 'terminal'
+  const showSidebarChrome = activeMainView !== 'settings'
+  const showAuxiliaryChrome = activeMainView === 'terminal'
 
-  const gridTemplateColumns = showTerminalChrome
+  const gridTemplateColumns = showSidebarChrome
     ? sidebarVisible
-      ? `var(--activitybar-width) ${sidebarWidth}px 1fr var(--auxiliarybar-width)`
-      : `var(--activitybar-width) 0px 1fr var(--auxiliarybar-width)`
+      ? `var(--activitybar-width) ${sidebarWidth}px 1fr ${showAuxiliaryChrome ? 'var(--auxiliarybar-width)' : '0px'}`
+      : `var(--activitybar-width) 0px 1fr ${showAuxiliaryChrome ? 'var(--auxiliarybar-width)' : '0px'}`
     : `var(--activitybar-width) 0px 1fr 0px`
 
   return (
     <div className="workbench" style={{ gridTemplateColumns }}>
       <TitleBar />
       <ActivityBar />
-      {showTerminalChrome && sidebarVisible && (
+      {showSidebarChrome && sidebarVisible && (
         <>
           <Sidebar />
           <Sash />
         </>
       )}
       <MainArea />
-      {showTerminalChrome && <AuxiliarySidebar />}
+      {showAuxiliaryChrome && <AuxiliarySidebar />}
       <StatusBar />
+      <SshConnectionDialog />
       <ContextMenuHost />
     </div>
   )

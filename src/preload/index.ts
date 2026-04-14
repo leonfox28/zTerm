@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
+import { type IConnectionSaveResult, type IConnectionSummary, type IConnectionUpsertInput, type IStoreSchema } from '@shared/types/store'
 import { IShellOptions } from '@shared/types/terminal'
-import { IStoreSchema } from '@shared/types/store'
 
 const terminalApi = {
   create: (options: IShellOptions): Promise<number> => {
@@ -43,8 +43,22 @@ const storeApi = {
   }
 }
 
+const connectionsApi = {
+  list: (): Promise<IConnectionSummary[]> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.CONNECTIONS_LIST)
+  },
+  save: (payload: IConnectionUpsertInput): Promise<IConnectionSaveResult> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.CONNECTIONS_SAVE, payload)
+  },
+  delete: (id: string): Promise<void> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.CONNECTIONS_DELETE, id)
+  }
+}
+
 contextBridge.exposeInMainWorld('terminalApi', terminalApi)
 contextBridge.exposeInMainWorld('storeApi', storeApi)
+contextBridge.exposeInMainWorld('connectionsApi', connectionsApi)
 
 export type TerminalApi = typeof terminalApi
 export type StoreApi = typeof storeApi
+export type ConnectionsApi = typeof connectionsApi

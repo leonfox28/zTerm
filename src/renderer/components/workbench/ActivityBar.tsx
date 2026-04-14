@@ -1,13 +1,10 @@
+import { openSettingsCommand } from '../../commands/workbench.commands'
 import { useWorkbenchStore } from '../../stores/workbench.store'
 
 export function ActivityBar() {
-  const { activeViewId, activeMainView, sidebarVisible, setActiveView, openSettingsView } =
-    useWorkbenchStore()
+  const { activeViewId, activeMainView, sidebarVisible, setActiveView } = useWorkbenchStore()
 
-  const items = [
-    { id: 'terminal', icon: 'codicon-terminal', title: 'Terminal' },
-    { id: 'connections', icon: 'codicon-remote-explorer', title: 'Remote Connections' }
-  ]
+  const items = [{ id: 'terminal', icon: 'codicon-terminal', title: 'Terminal' }]
 
   return (
     <div className="activitybar">
@@ -26,7 +23,7 @@ export function ActivityBar() {
       <div className="activitybar__bottom">
         <div
           className={`activitybar__item ${activeMainView === 'settings' ? 'activitybar__item--active' : ''}`}
-          onClick={openSettingsView}
+          onClick={openSettingsCommand}
           title="Settings"
         >
           <i className="codicon codicon-settings-gear" />

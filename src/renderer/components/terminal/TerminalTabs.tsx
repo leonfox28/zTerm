@@ -1,4 +1,10 @@
 import { useEffect, useRef } from 'react'
+import {
+  closeActiveTabCommand,
+  createNewTerminalCommand,
+  splitActiveTerminalHorizontallyCommand,
+  splitActiveTerminalVerticallyCommand
+} from '../../commands/workbench.commands'
 import { useTerminalStore } from '../../stores/terminal.store'
 import '../../styles/terminal.css'
 
@@ -7,17 +13,20 @@ export function TerminalTabs() {
   const activeTabId = useTerminalStore((state) => state.activeTabId)
   const setActiveTab = useTerminalStore((state) => state.setActiveTab)
   const removeTab = useTerminalStore((state) => state.removeTab)
-  const splitActivePane = useTerminalStore((state) => state.splitActivePane)
   const scrollRef = useRef<HTMLDivElement>(null)
   const activeTabRef = useRef<HTMLDivElement>(null)
 
   const handleNewTab = () => {
-    window.dispatchEvent(new CustomEvent('zterm:new-terminal'))
+    createNewTerminalCommand()
   }
 
   const handleSplit = (direction: 'horizontal' | 'vertical') => {
-    if (activeTabId === null) return
-    splitActivePane(activeTabId, direction)
+    if (direction === 'vertical') {
+      splitActiveTerminalVerticallyCommand()
+      return
+    }
+
+    splitActiveTerminalHorizontallyCommand()
   }
 
   // 当 activeTabId 变化时，将激活的 tab 滚动进可见区域（完整显示）
@@ -66,6 +75,11 @@ export function TerminalTabs() {
               className="terminal-tabs__close"
               onClick={(e) => {
                 e.stopPropagation()
+                if (tab.id === activeTabId) {
+                  closeActiveTabCommand()
+                  return
+                }
+
                 removeTab(tab.id)
               }}
             >

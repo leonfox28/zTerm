@@ -2,6 +2,12 @@ import { useCallback, useEffect, useRef } from 'react'
 import { useTerminalStore } from '../../stores/terminal.store'
 import { TerminalPaneTree } from './TerminalPaneTree'
 
+export interface CreateTerminalRequest {
+  title?: string
+  kind?: 'local' | 'ssh'
+  connectionId?: string
+}
+
 interface TerminalPanelProps {
   workspaceVisible: boolean
 }
@@ -12,12 +18,17 @@ export function TerminalPanel({ workspaceVisible }: TerminalPanelProps) {
   const addTab = useTerminalStore((state) => state.addTab)
   const initializedRef = useRef(false)
 
-  const createTerminal = useCallback(() => {
-    // Use a temporary negative id as placeholder; TerminalInstance will get the real PTY id
-    const tempId = -Date.now()
-    addTab(tempId)
-    return tempId
-  }, [addTab])
+  const createTerminal = useCallback(
+    (request?: CreateTerminalRequest) => {
+      const tempId = -Date.now()
+      addTab(tempId, request?.title, {
+        kind: request?.kind,
+        connectionId: request?.connectionId
+      })
+      return tempId
+    },
+    [addTab]
+  )
 
   // Create first terminal on mount
   useEffect(() => {
@@ -31,7 +42,10 @@ export function TerminalPanel({ workspaceVisible }: TerminalPanelProps) {
 
   // Listen for new terminal requests
   useEffect(() => {
-    const handler = () => createTerminal()
+    const handler = (event: Event) => {
+      const customEvent = event as CustomEvent<CreateTerminalRequest | undefined>
+      createTerminal(customEvent.detail)
+    }
     window.addEventListener('zterm:new-terminal', handler)
     return () => window.removeEventListener('zterm:new-terminal', handler)
   }, [createTerminal])

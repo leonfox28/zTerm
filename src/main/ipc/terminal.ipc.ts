@@ -7,11 +7,11 @@ export function registerTerminalIpc(
   terminalService: ITerminalService,
   getWindow: () => BrowserWindow | null
 ) {
-  ipcMain.handle(IPC_CHANNELS.TERMINAL_CREATE, (_event, options: IShellOptions) => {
+  ipcMain.handle(IPC_CHANNELS.TERMINAL_CREATE, async (_event, options: IShellOptions) => {
     const win = getWindow()
 
     try {
-      const id = terminalService.spawn(
+      const id = await terminalService.spawn(
         options,
         (termId, data) => {
           if (!win?.isDestroyed()) {

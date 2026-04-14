@@ -1,7 +1,7 @@
 # settings-view Specification
 
 ## Purpose
-TBD - created by archiving change migrate-superpowers-to-openspec. Update Purpose after archive.
+Define the persistent workbench settings page that edits terminal and appearance settings without destroying active terminal sessions.
 ## Requirements
 ### Requirement: Settings view opens in the main workbench area
 The system SHALL provide a Settings view inside the main workbench area, opened from the Activity Bar gear entry, without using a modal dialog.

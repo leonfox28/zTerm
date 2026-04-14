@@ -1,3 +1,9 @@
+export type TerminalSessionKind = 'local' | 'ssh'
+
+export interface ISshTerminalOptions {
+  connectionId: string
+}
+
 export interface IShellOptions {
   cols: number
   rows: number
@@ -5,6 +11,7 @@ export interface IShellOptions {
   shell?: string
   loginShell?: boolean
   env?: Record<string, string>
+  ssh?: ISshTerminalOptions
 }
 
 export interface ITerminalData {

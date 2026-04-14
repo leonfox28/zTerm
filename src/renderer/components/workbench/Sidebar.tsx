@@ -1,8 +1,8 @@
+import { openSshConnectionCommand } from '../../commands/workbench.commands'
 import { ConnectionTree } from '../sidebar/ConnectionTree'
 
 function handleNewConnection() {
-  // TODO: later this will open a dialog to choose connection type
-  window.dispatchEvent(new CustomEvent('zterm:new-terminal'))
+  openSshConnectionCommand()
 }
 
 export function Sidebar() {

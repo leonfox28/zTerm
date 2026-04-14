@@ -1,13 +1,31 @@
-import {
-  useConnectionsStore,
-  isFolder,
-  type ConnectionItem,
-  type ConnectionFolder
-} from '../../stores/connections.store'
+import { openSshConnectionCommand } from '../../commands/workbench.commands'
+import { useContextMenuStore, type ContextMenuItem } from '../../stores/context-menu.store'
+import { useWorkbenchStore } from '../../stores/workbench.store'
+import { useConnectionsStore, isFolder, type ConnectionItem, type ConnectionFolder } from '../../stores/connections.store'
 import '../../styles/sidebar.css'
 
-function handleNewTerminal() {
-  window.dispatchEvent(new CustomEvent('zterm:new-terminal'))
+function getConnectionTypeIcon(connection: ConnectionItem): string {
+  switch (connection.type) {
+    case 'ssh':
+      return 'codicon-remote'
+    case 'local':
+      return 'codicon-terminal'
+    default:
+      return 'codicon-plug'
+  }
+}
+
+function openSshTerminal(connection: ConnectionItem) {
+  useWorkbenchStore.getState().openTerminalView()
+  window.dispatchEvent(
+    new CustomEvent('zterm:new-terminal', {
+      detail: {
+        kind: 'ssh',
+        connectionId: connection.id,
+        title: connection.name
+      }
+    })
+  )
 }
 
 function TreeItem({
@@ -17,28 +35,20 @@ function TreeItem({
   node: ConnectionItem | ConnectionFolder
   depth: number
 }) {
-  const { toggleFolder } = useConnectionsStore()
+  const { toggleFolder, deleteConnection } = useConnectionsStore()
+  const openContextMenu = useContextMenuStore((state) => state.openContextMenu)
 
   if (isFolder(node)) {
     return (
       <>
-        <div
-          className="tree-item"
-          style={{ paddingLeft: `${8 + depth * 16}px` }}
-          onClick={() => toggleFolder(node.id)}
-        >
+        <div className="tree-item" style={{ paddingLeft: `${8 + depth * 16}px` }} onClick={() => toggleFolder(node.id)}>
           <i
             className={`codicon ${node.expanded ? 'codicon-chevron-down' : 'codicon-chevron-right'} tree-item__arrow`}
           />
-          <i
-            className={`codicon ${node.expanded ? 'codicon-folder-opened' : 'codicon-folder'} tree-item__icon`}
-          />
+          <i className={`codicon ${node.expanded ? 'codicon-folder-opened' : 'codicon-folder'} tree-item__icon`} />
           <span className="tree-item__label">{node.name}</span>
         </div>
-        {node.expanded &&
-          node.children.map((child) => (
-            <TreeItem key={child.id} node={child} depth={depth + 1} />
-          ))}
+        {node.expanded && node.children.map((child) => <TreeItem key={child.id} node={child} depth={depth + 1} />)}
       </>
     )
   }
@@ -47,28 +57,63 @@ function TreeItem({
     <div
       className="tree-item"
       style={{ paddingLeft: `${8 + depth * 16}px` }}
-      onClick={handleNewTerminal}
+      onClick={() => openSshTerminal(node)}
+      onContextMenu={(event) => {
+        event.preventDefault()
+        const items: ContextMenuItem[] = [
+          {
+            id: `connection-edit-${node.id}`,
+            type: 'action',
+            label: 'Edit Connection',
+            onSelect: () => openSshConnectionCommand(node.id)
+          },
+          {
+            id: `connection-delete-${node.id}`,
+            type: 'action',
+            label: 'Delete Connection',
+            onSelect: () => {
+              void deleteConnection(node.id)
+            }
+          }
+        ]
+
+        openContextMenu({
+          anchor: { x: event.clientX, y: event.clientY },
+          items
+        })
+      }}
+      title={node.host}
     >
       <span className="tree-item__arrow-placeholder" />
-      <i className="codicon codicon-plug tree-item__icon" />
+      <i className={`codicon ${getConnectionTypeIcon(node)} tree-item__icon`} />
       <span className="tree-item__label">{node.name}</span>
     </div>
   )
 }
 
 export function ConnectionTree() {
-  const { folders } = useConnectionsStore()
+  const { folders, connections } = useConnectionsStore()
+
+  const rootConnections = connections.filter((connection) => !connection.folderId)
 
   return (
     <div className="connection-tree">
-      <div className="tree-item" style={{ paddingLeft: '8px' }} onClick={handleNewTerminal}>
+      <div className="tree-item" style={{ paddingLeft: '8px' }} onClick={() => window.dispatchEvent(new CustomEvent('zterm:new-terminal'))}>
         <span className="tree-item__arrow-placeholder" />
         <i className="codicon codicon-terminal tree-item__icon" />
         <span className="tree-item__label">Local Terminal</span>
       </div>
-      {folders.map((folder) => (
-        <TreeItem key={folder.id} node={folder} depth={0} />
+      {rootConnections.map((connection) => (
+        <TreeItem key={connection.id} node={connection} depth={0} />
       ))}
+      {folders.map((folder) => {
+        const folderConnections = connections.filter((connection) => connection.folderId === folder.id)
+        const folderNode: ConnectionFolder = {
+          ...folder,
+          children: folderConnections
+        }
+        return <TreeItem key={folder.id} node={folderNode} depth={0} />
+      })}
     </div>
   )
 }

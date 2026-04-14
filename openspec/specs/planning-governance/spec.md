@@ -1,7 +1,7 @@
 # planning-governance Specification
 
 ## Purpose
-TBD - created by archiving change migrate-superpowers-to-openspec. Update Purpose after archive.
+Define OpenSpec as the primary planning source for new implementation work while keeping historical Superpowers documents as background reference only.
 ## Requirements
 ### Requirement: OpenSpec becomes the primary planning artifact source for new implementation work
 The project SHALL use OpenSpec change artifacts as the primary planning source for new implementation work once this migration change is adopted.

@@ -1,4 +1,4 @@
-import { TerminalApi, StoreApi } from '../../preload/index'
+import { ConnectionsApi, TerminalApi, StoreApi } from '../../preload/index'
 
 declare module '*.css' {
   const content: Record<string, string>
@@ -9,5 +9,6 @@ declare global {
   interface Window {
     terminalApi: TerminalApi
     storeApi: StoreApi
+    connectionsApi: ConnectionsApi
   }
 }

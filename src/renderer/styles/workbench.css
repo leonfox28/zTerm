@@ -198,6 +198,35 @@
   overflow-y: auto;
 }
 
+/* ===== Workbench Dialog ===== */
+.workbench-dialog {
+  position: absolute;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg-editor) 60%, transparent);
+}
+
+.workbench-dialog__panel {
+  width: min(920px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: 28px 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-editor);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+}
+
+.workbench-dialog__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 /* ===== Status Bar ===== */
 .statusbar {
   grid-area: statusbar;

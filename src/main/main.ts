@@ -2,12 +2,19 @@ import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { PtyService } from './services/pty.service'
 import { StoreService } from './services/store.service'
+import { ConnectionService } from './services/connection.service'
+import { SshService } from './services/ssh.service'
+import { TerminalManagerService } from './services/terminal-manager.service'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerStoreIpc } from './ipc/store.ipc'
+import { registerConnectionIpc } from './ipc/connection.ipc'
 
 let mainWindow: BrowserWindow | null = null
 const ptyService = new PtyService()
 const storeService = new StoreService()
+const connectionService = new ConnectionService(storeService)
+const sshService = new SshService(connectionService)
+const terminalManagerService = new TerminalManagerService(ptyService, sshService)
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -31,8 +38,9 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  registerTerminalIpc(ptyService, () => mainWindow)
+  registerTerminalIpc(terminalManagerService, () => mainWindow)
   registerStoreIpc(storeService)
+  registerConnectionIpc(connectionService)
   createWindow()
 
   app.on('activate', () => {
@@ -43,7 +51,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  ptyService.dispose()
+  terminalManagerService.dispose()
   if (process.platform !== 'darwin') {
     app.quit()
   }

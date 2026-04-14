@@ -1,5 +1,6 @@
 import { ChangeEvent } from 'react'
 import { themeOptions } from '@shared/config/theme.config'
+import { returnToTerminalCommand } from '../../commands/workbench.commands'
 import { useSettingsStore } from '../../stores/settings.store'
 import '../../styles/settings.css'
 
@@ -56,6 +57,9 @@ export function SettingsView({ visible }: SettingsViewProps) {
             <h1 className="settings-view__title">Settings</h1>
             <p className="settings-view__description">Configure terminal behavior and workbench appearance.</p>
           </div>
+          <button className="settings-view__button" onClick={returnToTerminalCommand} type="button">
+            Back to Terminal
+          </button>
         </div>
 
         <section className="settings-section">

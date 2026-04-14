@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { getThemeById } from '@shared/config/theme.config'
 import { useSettingsStore } from '../../stores/settings.store'
+import { useTerminalStore } from '../../stores/terminal.store'
 import '@xterm/xterm/css/xterm.css'
 
 const SPLIT_RESIZE_START_EVENT = 'zterm:split-resize-start'
@@ -17,6 +18,7 @@ interface TerminalInstanceProps {
 
 export function TerminalInstance({ sessionId, active, visible }: TerminalInstanceProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const session = useTerminalStore((state) => state.sessions[sessionId])
   const termRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const ptyIdRef = useRef<number | null>(null)
@@ -122,7 +124,7 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
   }, [clearScheduledFit, scheduleFit])
 
   useEffect(() => {
-    if (!containerRef.current) {
+    if (!containerRef.current || !session) {
       return
     }
 
@@ -175,32 +177,57 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
       }
     )
 
-    window.terminalApi
-      .create({
-        cols: term.cols,
-        rows: term.rows,
-        shell: initialSettings.shellPath.trim() || undefined,
-        loginShell: initialSettings.loginShell
-      })
-      .then((ptyId: number) => {
-        ptyIdRef.current = ptyId
-
-        term.onData((data) => {
-          if (ptyIdRef.current !== null) {
-            window.terminalApi.write(ptyId, data)
+    const createOptions =
+      session.kind === 'ssh'
+        ? {
+            cols: term.cols,
+            rows: term.rows,
+            ssh: session.connectionId ? { connectionId: session.connectionId } : undefined
           }
-        })
-
-        term.onResize(({ cols, rows }) => {
-          if (ptyIdRef.current !== null) {
-            window.terminalApi.resize(ptyId, cols, rows)
+        : {
+            cols: term.cols,
+            rows: term.rows,
+            shell: initialSettings.shellPath.trim() || undefined,
+            loginShell: initialSettings.loginShell
           }
+
+    let disposed = false
+    let createTimer: number | null = null
+
+    const startTerminal = () => {
+      window.terminalApi
+        .create(createOptions)
+        .then((ptyId: number) => {
+          if (disposed) {
+            window.terminalApi.kill(ptyId)
+            return
+          }
+
+          ptyIdRef.current = ptyId
+
+          term.onData((data) => {
+            if (ptyIdRef.current !== null) {
+              window.terminalApi.write(ptyIdRef.current, data)
+            }
+          })
+
+          term.onResize(({ cols, rows }) => {
+            if (ptyIdRef.current !== null) {
+              window.terminalApi.resize(ptyIdRef.current, cols, rows)
+            }
+          })
         })
-      })
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : 'Unknown error'
-        term.writeln(`\r\n[Failed to start terminal: ${message}]`)
-      })
+        .catch((error: unknown) => {
+          if (disposed) {
+            return
+          }
+
+          const message = error instanceof Error ? error.message : 'Unknown error'
+          term.writeln(`\r\n[Failed to start terminal: ${message}]`)
+        })
+    }
+
+    createTimer = window.setTimeout(startTerminal, 0)
 
     const resizeObserver = new ResizeObserver(() => {
       if (!visibleRef.current || splitDraggingRef.current) {
@@ -212,6 +239,10 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
     resizeObserver.observe(containerRef.current)
 
     return () => {
+      disposed = true
+      if (createTimer !== null) {
+        window.clearTimeout(createTimer)
+      }
       clearScheduledFit()
       lastFitSizeRef.current = null
       removeDataListener()
@@ -221,8 +252,11 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
         window.terminalApi.kill(ptyIdRef.current)
       }
       term.dispose()
+      termRef.current = null
+      fitAddonRef.current = null
+      ptyIdRef.current = null
     }
-  }, [clearScheduledFit, performFit, scheduleFit, sessionId])
+  }, [clearScheduledFit, performFit, scheduleFit, session, sessionId])
 
   useEffect(() => {
     const term = termRef.current
@@ -247,14 +281,18 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
 
   useEffect(() => {
     if (visible && fitAddonRef.current) {
-      setTimeout(() => {
+      const timer = window.setTimeout(() => {
         scheduleFit(true)
         if (active) {
           termRef.current?.focus()
         }
       }, 0)
+
+      return () => {
+        window.clearTimeout(timer)
+      }
     }
   }, [active, scheduleFit, visible])
 
-  return <div ref={containerRef} className="terminal-panel__instance" />
+  return <div ref={containerRef} className="terminal-panel__instance" data-zterm-terminal-surface="true" />
 }

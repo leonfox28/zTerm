@@ -7,5 +7,8 @@ export const IPC_CHANNELS = {
   TERMINAL_EXIT: 'terminal:exit',
   STORE_GET: 'store:get',
   STORE_SET: 'store:set',
-  STORE_GET_ALL: 'store:getAll'
+  STORE_GET_ALL: 'store:getAll',
+  CONNECTIONS_LIST: 'connections:list',
+  CONNECTIONS_SAVE: 'connections:save',
+  CONNECTIONS_DELETE: 'connections:delete'
 } as const
