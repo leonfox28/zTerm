@@ -93,6 +93,19 @@ export function SettingsView({ visible }: SettingsViewProps) {
           <span>{settings.loginShell ? 'Enabled' : 'Disabled'}</span>
         </label>
       )
+    },
+    {
+      id: 'copyOnSelect',
+      label: 'Copy on Selection',
+      description: 'Controls whether selecting text in the terminal immediately copies it to the system clipboard.',
+      searchTerms: ['general', 'copy on selection', 'copy', 'clipboard', 'selection', 'terminal clipboard'],
+      modified: settings.copyOnSelect !== DEFAULT_SETTINGS.copyOnSelect,
+      renderControl: () => (
+        <label className="settings-toggle-control">
+          <input checked={settings.copyOnSelect} onChange={(event) => updateSettings({ copyOnSelect: event.target.checked })} type="checkbox" />
+          <span>{settings.copyOnSelect ? 'Enabled' : 'Disabled'}</span>
+        </label>
+      )
     }
   ]
 

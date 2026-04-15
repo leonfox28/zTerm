@@ -118,6 +118,9 @@ export function ContextMenuHost() {
             type="button"
           >
             <span className="context-menu__item-label">{item.label}</span>
+            {item.shortcutLabel ? (
+              <span className="context-menu__item-shortcut">{item.shortcutLabel}</span>
+            ) : null}
           </button>
         )
       })}

@@ -8,6 +8,7 @@ export interface ISettings {
   fontFamily: string
   shellPath: string
   loginShell: boolean
+  copyOnSelect: boolean
   theme: ThemeId
 }
 
@@ -77,5 +78,6 @@ export const DEFAULT_SETTINGS: ISettings = {
   fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",
   shellPath: '',
   loginShell: true,
+  copyOnSelect: true,
   theme: 'dark-plus'
 }

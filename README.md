@@ -15,9 +15,10 @@ A cross-platform terminal emulator and SSH client with a VS Code-like workbench 
   - Terminal page with connections sidebar + auxiliary remote file sidebar
   - Settings page with VS Code-like search, TOC, and setting rows
   - SSH connection dialog for create/edit flows
-- Built-in settings page for theme, terminal font, shell path, and login shell
+- Built-in settings page for theme, terminal font, shell path, login shell, and copy-on-selection
+- Terminal clipboard support with `Cmd+C` / `Cmd+V`, pane context menu copy/paste, and optional copy-on-selection
 - Dark+ / Light+ theme switching with persisted startup restore
-- Keyboard shortcuts for new terminal, close tab, split panes, tab switching, and settings navigation
+- Keyboard shortcuts for new terminal, close terminal pane, split panes, tab switching, terminal clipboard, and settings navigation
 
 ## Tech Stack
 
@@ -59,6 +60,7 @@ chmod +x node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper
 | `npm run dev` | Start in development mode |
 | `npm run build` | Build for production |
 | `npm run lint` | Run ESLint |
+| `npm run typecheck` | Run TypeScript type check without emitting files |
 | `npm run format` | Run Prettier |
 
 ## Docs

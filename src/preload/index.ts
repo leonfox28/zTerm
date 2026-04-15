@@ -80,12 +80,23 @@ const sftpApi = {
   }
 }
 
+const clipboardApi = {
+  readText: (): Promise<string> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.CLIPBOARD_READ_TEXT)
+  },
+  writeText: (text: string): Promise<void> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.CLIPBOARD_WRITE_TEXT, text)
+  }
+}
+
 contextBridge.exposeInMainWorld('terminalApi', terminalApi)
 contextBridge.exposeInMainWorld('storeApi', storeApi)
 contextBridge.exposeInMainWorld('connectionsApi', connectionsApi)
 contextBridge.exposeInMainWorld('sftpApi', sftpApi)
+contextBridge.exposeInMainWorld('clipboardApi', clipboardApi)
 
 export type TerminalApi = typeof terminalApi
 export type StoreApi = typeof storeApi
 export type ConnectionsApi = typeof connectionsApi
 export type SftpApi = typeof sftpApi
+export type ClipboardApi = typeof clipboardApi

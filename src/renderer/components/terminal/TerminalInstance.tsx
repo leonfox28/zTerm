@@ -3,6 +3,10 @@ import { Terminal, type IDisposable } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { getThemeById } from '@shared/config/theme.config'
+import {
+  registerTerminalClipboardRuntime,
+  type TerminalClipboardRuntime
+} from '../../commands/terminal-clipboard.commands'
 import { useSettingsStore } from '../../stores/settings.store'
 import { useTerminalStore } from '../../stores/terminal.store'
 import '@xterm/xterm/css/xterm.css'
@@ -50,6 +54,10 @@ function parseOsc633Cwd(data: string): string | null {
 
   const cwd = decodeOscValue(cwdEntry.slice(4))
   return cwd.startsWith('/') ? cwd : null
+}
+
+function matchesTerminalClipboardShortcut(event: KeyboardEvent, key: 'c' | 'v'): boolean {
+  return event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === key
 }
 
 const SPLIT_RESIZE_END_EVENT = 'zterm:split-resize-end'
@@ -147,6 +155,35 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
     [clearScheduledFit, performFit]
   )
 
+  const copySelection = useCallback(async () => {
+    const term = termRef.current
+    if (!term || !term.hasSelection()) {
+      return false
+    }
+
+    const selection = term.getSelection()
+    if (!selection) {
+      return false
+    }
+
+    await window.clipboardApi.writeText(selection)
+    return true
+  }, [])
+
+  const pasteClipboard = useCallback(async () => {
+    const term = termRef.current
+    if (!term) {
+      return false
+    }
+
+    const clipboardText = await window.clipboardApi.readText()
+    term.paste(clipboardText)
+    requestAnimationFrame(() => {
+      term.focus()
+    })
+    return true
+  }, [])
+
   useEffect(() => {
     visibleRef.current = visible
   }, [visible])
@@ -195,6 +232,25 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
 
     const fitAddon = new FitAddon()
     term.loadAddon(fitAddon)
+    term.attachCustomKeyEventHandler((event) => {
+      if (matchesTerminalClipboardShortcut(event, 'c')) {
+        if (!term.hasSelection()) {
+          return true
+        }
+
+        event.preventDefault()
+        void copySelection()
+        return false
+      }
+
+      if (matchesTerminalClipboardShortcut(event, 'v')) {
+        event.preventDefault()
+        void pasteClipboard()
+        return false
+      }
+
+      return true
+    })
     term.open(containerRef.current)
 
     const oscHandlers: IDisposable[] = []
@@ -219,6 +275,27 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
 
     fitAddonRef.current = fitAddon
     termRef.current = term
+
+    const clipboardRuntime: TerminalClipboardRuntime = {
+      hasSelection: () => term.hasSelection(),
+      copySelection,
+      pasteClipboard
+    }
+    const unregisterClipboardRuntime = registerTerminalClipboardRuntime(sessionId, clipboardRuntime)
+
+    const selectionChangeDisposable = term.onSelectionChange(() => {
+      if (!useSettingsStore.getState().settings.copyOnSelect || !term.hasSelection()) {
+        return
+      }
+
+      const selection = term.getSelection()
+      if (!selection) {
+        return
+      }
+
+      void window.clipboardApi.writeText(selection)
+    })
+
     performFit(true)
 
     try {
@@ -318,6 +395,8 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
       lastFitSizeRef.current = null
       removeDataListener()
       removeExitListener()
+      selectionChangeDisposable.dispose()
+      unregisterClipboardRuntime()
       for (const handler of oscHandlers) {
         handler.dispose()
       }
@@ -334,6 +413,8 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
   }, [
     clearScheduledFit,
     clearSessionRuntime,
+    copySelection,
+    pasteClipboard,
     performFit,
     scheduleFit,
     hasSession,

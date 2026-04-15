@@ -12,6 +12,7 @@ interface ContextMenuItemBase {
 export interface ContextMenuActionItem extends ContextMenuItemBase {
   type: 'action'
   label: string
+  shortcutLabel?: string
   onSelect: () => void | Promise<void>
   disabled?: boolean
   icon?: string

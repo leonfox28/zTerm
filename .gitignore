@@ -30,6 +30,13 @@ pids/
 # TypeScript
 *.tsbuildinfo
 
+# Prevent accidental TypeScript emit into source tree
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map
+!src/renderer/env.d.ts
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

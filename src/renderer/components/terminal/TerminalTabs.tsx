@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
 import {
-  closeActiveTabCommand,
   createNewTerminalCommand,
   splitActiveTerminalHorizontallyCommand,
   splitActiveTerminalVerticallyCommand
@@ -75,11 +74,6 @@ export function TerminalTabs() {
               className="terminal-tabs__close"
               onClick={(e) => {
                 e.stopPropagation()
-                if (tab.id === activeTabId) {
-                  closeActiveTabCommand()
-                  return
-                }
-
                 removeTab(tab.id)
               }}
             >

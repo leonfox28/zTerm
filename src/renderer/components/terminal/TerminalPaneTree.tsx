@@ -4,6 +4,7 @@ import {
   type TerminalPaneNode,
   useTerminalStore
 } from '../../stores/terminal.store'
+import { getTerminalClipboardRuntime } from '../../commands/terminal-clipboard.commands'
 import { type ContextMenuItem, useContextMenuStore } from '../../stores/context-menu.store'
 import { TerminalInstance } from './TerminalInstance'
 import { TerminalSplitSash } from './TerminalSplitSash'
@@ -169,12 +170,45 @@ export function TerminalPaneTree({ tabId, rootPaneId, activePaneId, visible }: T
               onContextMenu={(event) => {
                 event.preventDefault()
                 setActivePane(tabId, leaf.paneId)
+                requestAnimationFrame(() => {
+                  const terminalSurface = (event.currentTarget as HTMLDivElement).querySelector(
+                    '[data-zterm-terminal-surface="true"]'
+                  )
+                  if (terminalSurface instanceof HTMLElement) {
+                    terminalSurface.focus()
+                  }
+                })
+                const clipboardRuntime = getTerminalClipboardRuntime(session.id)
                 const items: ContextMenuItem[] = [
+                  {
+                    id: `terminal-pane-copy-${leaf.paneId}`,
+                    type: 'action',
+                    label: 'Copy',
+                    shortcutLabel: '⌘C',
+                    disabled: !clipboardRuntime?.hasSelection(),
+                    onSelect: async () => {
+                      await clipboardRuntime?.copySelection()
+                    }
+                  },
+                  {
+                    id: `terminal-pane-paste-${leaf.paneId}`,
+                    type: 'action',
+                    label: 'Paste',
+                    shortcutLabel: '⌘V',
+                    onSelect: async () => {
+                      await clipboardRuntime?.pasteClipboard()
+                    }
+                  },
+                  {
+                    id: `terminal-pane-separator-${leaf.paneId}`,
+                    type: 'separator'
+                  },
                   {
                     id: `terminal-pane-close-${leaf.paneId}`,
                     type: 'action',
                     icon: 'codicon-close',
                     label: 'Close Terminal',
+                    shortcutLabel: '⌘W',
                     onSelect: () => {
                       closePane(tabId, leaf.paneId)
                       requestAnimationFrame(() => {

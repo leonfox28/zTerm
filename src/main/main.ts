@@ -8,6 +8,7 @@ import { SftpService } from './services/sftp.service'
 import { TerminalManagerService } from './services/terminal-manager.service'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerStoreIpc } from './ipc/store.ipc'
+import { registerClipboardIpc } from './ipc/clipboard.ipc'
 import { registerConnectionIpc } from './ipc/connection.ipc'
 import { registerSftpIpc } from './ipc/sftp.ipc'
 
@@ -43,6 +44,7 @@ function createWindow() {
 app.whenReady().then(() => {
   registerTerminalIpc(terminalManagerService, () => mainWindow)
   registerStoreIpc(storeService)
+  registerClipboardIpc()
   registerConnectionIpc(connectionService)
   registerSftpIpc(sftpService)
   createWindow()

@@ -12,6 +12,8 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
+    "outDir": "./out/tsc",
+    "noEmit": true,
     "baseUrl": ".",
     "paths": {
       "@shared/*": ["src/shared/*"],

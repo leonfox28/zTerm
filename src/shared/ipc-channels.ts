@@ -8,6 +8,8 @@ export const IPC_CHANNELS = {
   STORE_GET: 'store:get',
   STORE_SET: 'store:set',
   STORE_GET_ALL: 'store:getAll',
+  CLIPBOARD_READ_TEXT: 'clipboard:readText',
+  CLIPBOARD_WRITE_TEXT: 'clipboard:writeText',
   CONNECTIONS_LIST: 'connections:list',
   CONNECTIONS_SAVE: 'connections:save',
   CONNECTIONS_DELETE: 'connections:delete',

@@ -8,6 +8,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "lint": "eslint src/",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "format": "prettier --write src/"
   },
   "dependencies": {

@@ -64,6 +64,10 @@ const keybindingRegistry = new Map(workbenchCommands.map((command) => [command.d
 export function useWorkbenchKeybindings() {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) {
+        return
+      }
+
       const normalized = normalizeKeybinding(event)
       const command = keybindingRegistry.get(normalized)
       if (!command) {
@@ -96,7 +100,7 @@ export function useWorkbenchKeybindings() {
       }
 
       event.preventDefault()
-      command.execute()
+      void command.execute()
     }
 
     window.addEventListener('keydown', handleKeyDown)

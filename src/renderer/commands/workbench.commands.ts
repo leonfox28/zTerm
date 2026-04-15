@@ -33,7 +33,7 @@ export interface WorkbenchCommandDefinition {
   title: string
   defaultKeybinding: string
   scope: WorkbenchCommandScope
-  execute: () => void
+  execute: () => void | Promise<boolean>
 }
 
 function dispatchNewTerminalEvent() {
@@ -50,12 +50,17 @@ function splitActivePane(direction: SplitDirection) {
 }
 
 export function closeActiveTabCommand() {
-  const { activeTabId, removeTab } = useTerminalStore.getState()
+  const { activeTabId, tabs, closePane } = useTerminalStore.getState()
   if (activeTabId === null) {
     return
   }
 
-  removeTab(activeTabId)
+  const activeTab = tabs.find((tab) => tab.id === activeTabId)
+  if (!activeTab) {
+    return
+  }
+
+  closePane(activeTabId, activeTab.activePaneId)
 }
 
 function focusAdjacentTab(step: 1 | -1) {
@@ -119,7 +124,7 @@ export const workbenchCommands: WorkbenchCommandDefinition[] = [
   },
   {
     id: 'terminal.closeActiveTab',
-    title: 'Close Active Terminal Tab',
+    title: 'Close Active Terminal',
     defaultKeybinding: 'meta+w',
     scope: {
       mainView: 'terminal',

@@ -40,6 +40,7 @@
   - 终端 cwd 与文件树路径双向同步
   - 文件树工具栏上传 / 刷新
   - 远程文件与目录下载、详情菜单
+  - 终端复制 / 粘贴、右键 Copy/Paste、copy-on-selection 设置
 - **默认协作约束**：
   - 用中文回复
   - 使用 npm，不用 pnpm
@@ -75,6 +76,7 @@
 | 文件树父目录导航行 | ✅ |
 | 远程文件/目录右键下载与详情 | ✅ |
 | 文件树跟随终端路径 | ✅ |
+| 终端复制 / 粘贴与 copy-on-selection | ✅ |
 
 ---
 
@@ -125,10 +127,11 @@
 - `src/main/ipc/sftp.ipc.ts` — SFTP IPC handler
 - `src/main/ipc/store.ipc.ts` — store IPC handler
 - `src/main/ipc/connection.ipc.ts` — connection IPC handler
+- `src/main/ipc/clipboard.ipc.ts` — clipboard IPC handler
 
 ### Preload 侧
 
-- `src/preload/index.ts` — 暴露 `window.terminalApi` / `window.storeApi` / `window.connectionsApi` / `window.sftpApi`
+- `src/preload/index.ts` — 暴露 `window.terminalApi` / `window.storeApi` / `window.connectionsApi` / `window.sftpApi` / `window.clipboardApi`
 
 ### Renderer 侧
 
@@ -153,7 +156,7 @@
 ### 已验证通过
 
 - `npm run lint`
-- `npx tsc --noEmit`
+- `npm run typecheck`
 - 用户手动验证：
   - 本地终端正常
   - 分屏正常
