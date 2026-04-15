@@ -15,6 +15,8 @@ export interface TerminalSession {
   title: string
   kind: TerminalSessionKind
   connectionId?: string
+  ptyId?: number
+  cwd?: string
 }
 
 export interface TerminalLeafPane {
@@ -47,6 +49,9 @@ interface TerminalState {
   splitActivePane: (tabId: number, direction: SplitDirection) => void
   closePane: (tabId: number, paneId: string) => void
   resizeSplit: (splitId: string, ratios: [number, number]) => void
+  setSessionPtyId: (sessionId: string, ptyId: number) => void
+  setSessionCwd: (sessionId: string, cwd: string) => void
+  clearSessionRuntime: (sessionId: string) => void
 }
 
 const DEFAULT_SPLIT_RATIOS: [number, number] = [0.5, 0.5]
@@ -399,5 +404,50 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
           }
         }
       }
-    })
+    }),
+
+  setSessionPtyId: (sessionId, ptyId) =>
+    set((state) => ({
+      sessions: state.sessions[sessionId]
+        ? {
+            ...state.sessions,
+            [sessionId]: {
+              ...state.sessions[sessionId],
+              ptyId
+            }
+          }
+        : state.sessions
+    })),
+
+  setSessionCwd: (sessionId, cwd) =>
+    set((state) => {
+      const session = state.sessions[sessionId]
+      if (!session || session.cwd === cwd) {
+        return state
+      }
+
+      return {
+        sessions: {
+          ...state.sessions,
+          [sessionId]: {
+            ...session,
+            cwd
+          }
+        }
+      }
+    }),
+
+  clearSessionRuntime: (sessionId) =>
+    set((state) => ({
+      sessions: state.sessions[sessionId]
+        ? {
+            ...state.sessions,
+            [sessionId]: {
+              ...state.sessions[sessionId],
+              ptyId: undefined,
+              cwd: undefined
+            }
+          }
+        : state.sessions
+    }))
 }))

@@ -3,6 +3,7 @@ import { readFileSync } from 'fs'
 import { IShellOptions } from '@shared/types/terminal'
 import { type IConnectionItem } from '@shared/types/store'
 import { ConnectionService } from './connection.service'
+import { createSshShellLaunchCommand } from './shell-integration'
 
 interface ActiveSshProcess {
   client: Client
@@ -152,21 +153,30 @@ export class SshService {
       client.on('ready', () => {
         ready = true
 
-        client.shell(
+        client.exec(
+          createSshShellLaunchCommand(),
           {
-            cols: options.cols,
-            rows: options.rows,
-            term: 'xterm-256color'
+            pty: {
+              cols: options.cols,
+              rows: options.rows,
+              term: 'xterm-256color'
+            },
+            env: {
+              TERM_PROGRAM: 'zterm'
+            }
           },
           (error, stream) => {
             if (error) {
               client.end()
-              rejectOnce('SSH handshake succeeded but opening the remote shell failed', error.message)
+              rejectOnce('SSH handshake succeeded but opening the remote terminal failed', error.message)
               return
             }
 
+            this.processes.set(id, { client, stream })
+
             stream.on('data', (data: Buffer | string) => {
-              onData(id, typeof data === 'string' ? data : data.toString('utf8'))
+              const text = typeof data === 'string' ? data : data.toString('utf8')
+              onData(id, text)
             })
 
             stream.on('close', () => {
@@ -174,7 +184,6 @@ export class SshService {
               client.end()
             })
 
-            this.processes.set(id, { client, stream })
             resolveOnce()
           }
         )

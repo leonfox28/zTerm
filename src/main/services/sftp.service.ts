@@ -1,5 +1,12 @@
+import { promises as fs } from 'fs'
+import { basename, join } from 'path'
 import { Client, type FileEntryWithStats, type SFTPWrapper } from 'ssh2'
-import { type IRemoteDirectoryResult, type IRemoteFileEntry, type RemoteFileKind } from '@shared/types/sftp'
+import {
+  type IRemoteDirectoryResult,
+  type IRemoteEntryDetails,
+  type IRemoteFileEntry,
+  type RemoteFileKind
+} from '@shared/types/sftp'
 import { ConnectionService } from './connection.service'
 import { createSshConnectConfig } from './ssh.service'
 
@@ -11,7 +18,7 @@ function joinRemotePath(parent: string, name: string): string {
   return `${parent.replace(/\/+$/, '')}/${name}`
 }
 
-function toRemoteFileKind(entry: FileEntryWithStats): RemoteFileKind {
+function toRemoteFileKind(entry: Pick<FileEntryWithStats, 'attrs'>): RemoteFileKind {
   if (entry.attrs.isDirectory()) {
     return 'directory'
   }
@@ -63,6 +70,38 @@ export class SftpService {
 
   async listDirectory(connectionId: string, path: string): Promise<IRemoteDirectoryResult> {
     return this.withSftp(connectionId, async (sftp) => this.readDirectory(sftp, path))
+  }
+
+  async uploadFile(connectionId: string, localFilePath: string, destinationPath: string): Promise<void> {
+    return this.withSftp(connectionId, async (sftp) => {
+      const remoteFilePath = joinRemotePath(destinationPath, basename(localFilePath))
+      if (await this.pathExists(sftp, remoteFilePath)) {
+        throw new Error(`Remote path already exists: ${remoteFilePath}`)
+      }
+
+      await this.fastPut(sftp, localFilePath, remoteFilePath)
+    })
+  }
+
+  async downloadEntry(
+    connectionId: string,
+    entryPath: string,
+    kind: RemoteFileKind,
+    destinationPath: string
+  ): Promise<void> {
+    return this.withSftp(connectionId, async (sftp) => {
+      if (kind === 'directory') {
+        const localDirectoryPath = join(destinationPath, basename(entryPath))
+        await this.downloadDirectory(sftp, entryPath, localDirectoryPath)
+        return
+      }
+
+      await this.fastGet(sftp, entryPath, destinationPath)
+    })
+  }
+
+  async getEntryDetails(connectionId: string, path: string): Promise<IRemoteEntryDetails> {
+    return this.withSftp(connectionId, async (sftp) => this.readEntryDetails(sftp, path))
   }
 
   private async withSftp<T>(connectionId: string, run: (sftp: SFTPWrapper) => Promise<T>): Promise<T> {
@@ -140,6 +179,93 @@ export class SftpService {
           path,
           entries: sortEntries(filteredEntries)
         })
+      })
+    })
+  }
+
+  private readEntryDetails(sftp: SFTPWrapper, path: string): Promise<IRemoteEntryDetails> {
+    return new Promise((resolve, reject) => {
+      sftp.lstat(path, (error, stats) => {
+        if (error || !stats) {
+          reject(new Error(`Failed to read remote entry details for ${path}: ${error?.message ?? 'Unknown error'}`))
+          return
+        }
+
+        resolve({
+          path,
+          kind: toRemoteFileKind({ attrs: stats }),
+          size: stats.size ?? 0,
+          mtime: stats.mtime ?? 0
+        })
+      })
+    })
+  }
+
+  private fastPut(sftp: SFTPWrapper, localFilePath: string, remoteFilePath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      sftp.fastPut(localFilePath, remoteFilePath, (error) => {
+        if (error) {
+          reject(new Error(`Failed to upload file to ${remoteFilePath}: ${error.message}`))
+          return
+        }
+
+        resolve()
+      })
+    })
+  }
+
+  private fastGet(sftp: SFTPWrapper, remoteFilePath: string, localFilePath: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      sftp.fastGet(remoteFilePath, localFilePath, (error) => {
+        if (error) {
+          reject(new Error(`Failed to download remote file ${remoteFilePath}: ${error.message}`))
+          return
+        }
+
+        resolve()
+      })
+    })
+  }
+
+  private async downloadDirectory(sftp: SFTPWrapper, remoteDirectoryPath: string, localDirectoryPath: string): Promise<void> {
+    await fs.mkdir(localDirectoryPath, { recursive: true })
+    const directory = await this.readDirectory(sftp, remoteDirectoryPath)
+
+    for (const entry of directory.entries) {
+      const localEntryPath = join(localDirectoryPath, entry.name)
+      if (entry.kind === 'directory') {
+        await this.downloadDirectory(sftp, entry.path, localEntryPath)
+        continue
+      }
+
+      await this.fastGet(sftp, entry.path, localEntryPath)
+    }
+  }
+
+  private pathExists(sftp: SFTPWrapper, path: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      sftp.lstat(path, (error, stats) => {
+        if (!error && stats) {
+          resolve(true)
+          return
+        }
+
+        if (error && error.message.toLowerCase().includes('no such file')) {
+          resolve(false)
+          return
+        }
+
+        if (error && 'code' in error && error.code === 2) {
+          resolve(false)
+          return
+        }
+
+        if (error) {
+          reject(new Error(`Failed to inspect remote path ${path}: ${error.message}`))
+          return
+        }
+
+        resolve(false)
       })
     })
   }

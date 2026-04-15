@@ -8,32 +8,40 @@ interface RemoteFileNode {
   children: string[] | null
 }
 
+type LoadPathSource = 'initial' | 'manual' | 'follow-terminal' | 'refresh'
+
 interface RemoteConnectionTreeState {
-  rootPath: string | null
+  currentPath: string | null
   rootIds: string[]
   nodes: Record<string, RemoteFileNode>
   expandedPaths: string[]
   loadingPaths: string[]
   loadedPaths: string[]
   error: string | null
+  followTerminalPath: boolean
 }
 
 interface RemoteFilesState {
   trees: Record<string, RemoteConnectionTreeState>
   ensureRootLoaded: (connectionId: string) => Promise<void>
+  loadPath: (connectionId: string, path: string, options?: { source?: LoadPathSource }) => Promise<void>
+  goToParent: (connectionId: string) => Promise<void>
   toggleDirectory: (connectionId: string, entry: IRemoteFileEntry) => Promise<void>
-  refreshConnection: (connectionId: string) => Promise<void>
+  refreshCurrentPath: (connectionId: string) => Promise<void>
+  uploadToCurrentPath: (connectionId: string) => Promise<boolean>
+  setFollowTerminalPath: (connectionId: string, enabled: boolean) => void
 }
 
 function createEmptyTreeState(): RemoteConnectionTreeState {
   return {
-    rootPath: null,
+    currentPath: null,
     rootIds: [],
     nodes: {},
     expandedPaths: [],
     loadingPaths: [],
     loadedPaths: [],
-    error: null
+    error: null,
+    followTerminalPath: true
   }
 }
 
@@ -63,10 +71,11 @@ function applyDirectoryResult(
 
   const nextTree: RemoteConnectionTreeState = {
     ...tree,
-    rootPath: reset ? result.path : tree.rootPath,
+    currentPath: reset ? result.path : tree.currentPath,
     rootIds: reset ? childIds : tree.rootIds,
     nodes: nextNodes,
-    loadedPaths: unique([...tree.loadedPaths, result.path]),
+    expandedPaths: reset ? [] : tree.expandedPaths,
+    loadedPaths: reset ? [result.path] : unique([...tree.loadedPaths, result.path]),
     loadingPaths: without(without(tree.loadingPaths, result.path), ROOT_LOADING_KEY),
     error: null
   }
@@ -97,19 +106,33 @@ function setError(tree: RemoteConnectionTreeState, path: string, error: string):
   }
 }
 
+function getParentPath(path: string): string | null {
+  if (path === '/') {
+    return null
+  }
+
+  const trimmed = path.replace(/\/+$/, '')
+  const separatorIndex = trimmed.lastIndexOf('/')
+  if (separatorIndex <= 0) {
+    return '/'
+  }
+
+  return trimmed.slice(0, separatorIndex)
+}
+
 export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
   trees: {},
 
   ensureRootLoaded: async (connectionId) => {
     const currentTree = get().trees[connectionId] ?? createEmptyTreeState()
-    if (currentTree.rootPath && currentTree.loadedPaths.includes(currentTree.rootPath)) {
+    if (currentTree.currentPath && currentTree.loadedPaths.includes(currentTree.currentPath)) {
       return
     }
 
     set((state) => ({
       trees: {
         ...state.trees,
-        [connectionId]: setLoading(state.trees[connectionId] ?? createEmptyTreeState(), currentTree.rootPath ?? ROOT_LOADING_KEY)
+        [connectionId]: setLoading(state.trees[connectionId] ?? createEmptyTreeState(), currentTree.currentPath ?? ROOT_LOADING_KEY)
       }
     }))
 
@@ -128,12 +151,54 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
           ...state.trees,
           [connectionId]: {
             ...setError(state.trees[connectionId] ?? createEmptyTreeState(), ROOT_LOADING_KEY, message),
-            rootPath: null,
+            currentPath: null,
             rootIds: []
           }
         }
       }))
     }
+  },
+
+  loadPath: async (connectionId, path, options) => {
+    const source = options?.source ?? 'manual'
+
+    set((state) => ({
+      trees: {
+        ...state.trees,
+        [connectionId]: setLoading(state.trees[connectionId] ?? createEmptyTreeState(), path)
+      }
+    }))
+
+    try {
+      const result = await window.sftpApi.listDirectory(connectionId, path)
+      set((state) => {
+        const nextTree = applyDirectoryResult(state.trees[connectionId] ?? createEmptyTreeState(), result, true)
+        return {
+          trees: {
+            ...state.trees,
+            [connectionId]: source === 'manual' ? { ...nextTree, followTerminalPath: false } : nextTree
+          }
+        }
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : `Failed to load ${path}`
+      set((state) => ({
+        trees: {
+          ...state.trees,
+          [connectionId]: setError(state.trees[connectionId] ?? createEmptyTreeState(), path, message)
+        }
+      }))
+    }
+  },
+
+  goToParent: async (connectionId) => {
+    const tree = get().trees[connectionId] ?? createEmptyTreeState()
+    const parentPath = tree.currentPath ? getParentPath(tree.currentPath) : null
+    if (!parentPath) {
+      return
+    }
+
+    await get().loadPath(connectionId, parentPath, { source: 'manual' })
   },
 
   toggleDirectory: async (connectionId, entry) => {
@@ -195,14 +260,40 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
     }
   },
 
-  refreshConnection: async (connectionId) => {
+  refreshCurrentPath: async (connectionId) => {
+    const tree = get().trees[connectionId] ?? createEmptyTreeState()
+    if (tree.currentPath) {
+      await get().loadPath(connectionId, tree.currentPath, { source: 'refresh' })
+      return
+    }
+
+    await get().ensureRootLoaded(connectionId)
+  },
+
+  uploadToCurrentPath: async (connectionId) => {
+    const tree = get().trees[connectionId] ?? createEmptyTreeState()
+    if (!tree.currentPath) {
+      return false
+    }
+
+    const result = await window.sftpApi.uploadFile(connectionId, tree.currentPath)
+    if (result.canceled) {
+      return false
+    }
+
+    await get().refreshCurrentPath(connectionId)
+    return true
+  },
+
+  setFollowTerminalPath: (connectionId, enabled) => {
     set((state) => ({
       trees: {
         ...state.trees,
-        [connectionId]: createEmptyTreeState()
+        [connectionId]: {
+          ...(state.trees[connectionId] ?? createEmptyTreeState()),
+          followTerminalPath: enabled
+        }
       }
     }))
-
-    await get().ensureRootLoaded(connectionId)
   }
 }))

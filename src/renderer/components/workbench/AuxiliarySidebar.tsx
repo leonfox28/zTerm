@@ -1,10 +1,11 @@
 import { useEffect } from 'react'
+import { type IRemoteFileEntry } from '@shared/types/sftp'
 import { RemoteFileTree } from '../sidebar/RemoteFileTree'
 import { useConnectionsStore } from '../../stores/connections.store'
 import { useRemoteFilesStore } from '../../stores/remote-files.store'
 import { useTerminalStore } from '../../stores/terminal.store'
 
-function getActiveConnectionId() {
+function getActiveSession() {
   const { activeTabId, tabs, panes, sessions } = useTerminalStore.getState()
   if (activeTabId === null) {
     return null
@@ -25,15 +26,26 @@ function getActiveConnectionId() {
     return null
   }
 
-  return session.connectionId
+  return session
+}
+
+function escapeShellPath(path: string): string {
+  return `'${path.replaceAll("'", `'\\''`)}'`
 }
 
 export function AuxiliarySidebar() {
-  const activeConnectionId = useTerminalStore(() => getActiveConnectionId())
+  const activeSession = useTerminalStore(() => getActiveSession())
   const connections = useConnectionsStore((state) => state.connections)
   const trees = useRemoteFilesStore((state) => state.trees)
   const ensureRootLoaded = useRemoteFilesStore((state) => state.ensureRootLoaded)
-  const refreshConnection = useRemoteFilesStore((state) => state.refreshConnection)
+  const loadPath = useRemoteFilesStore((state) => state.loadPath)
+  const refreshCurrentPath = useRemoteFilesStore((state) => state.refreshCurrentPath)
+  const uploadToCurrentPath = useRemoteFilesStore((state) => state.uploadToCurrentPath)
+  const setFollowTerminalPath = useRemoteFilesStore((state) => state.setFollowTerminalPath)
+
+  const activeConnectionId = activeSession?.connectionId ?? null
+  const activeConnection = connections.find((connection) => connection.id === activeConnectionId)
+  const tree = activeConnectionId ? trees[activeConnectionId] : undefined
 
   useEffect(() => {
     if (!activeConnectionId) {
@@ -43,28 +55,44 @@ export function AuxiliarySidebar() {
     void ensureRootLoaded(activeConnectionId)
   }, [activeConnectionId, ensureRootLoaded])
 
-  const activeConnection = connections.find((connection) => connection.id === activeConnectionId)
-  const tree = activeConnectionId ? trees[activeConnectionId] : undefined
+  useEffect(() => {
+    if (!activeConnectionId || !activeSession?.cwd || !tree?.followTerminalPath || tree.currentPath === activeSession.cwd) {
+      return
+    }
+
+    void loadPath(activeConnectionId, activeSession.cwd, { source: 'follow-terminal' })
+  }, [activeConnectionId, activeSession?.cwd, loadPath, tree?.currentPath, tree?.followTerminalPath])
   const title = activeConnection ? activeConnection.name : 'Remote Files'
-  const isRootLoading = Boolean(activeConnectionId && !tree?.rootPath && tree?.loadingPaths.length)
+  const isRootLoading = Boolean(activeConnectionId && !tree?.currentPath && tree?.loadingPaths.length)
+
+  const handleDownloadEntry = async (entry: IRemoteFileEntry) => {
+    if (!activeConnectionId) {
+      return
+    }
+
+    await window.sftpApi.downloadEntry(activeConnectionId, entry.path, entry.kind)
+  }
+
+  const handleShowEntryDetails = async (entry: IRemoteFileEntry) => {
+    if (!activeConnectionId) {
+      return
+    }
+
+    const details = await window.sftpApi.getEntryDetails(activeConnectionId, entry.path)
+    window.alert(
+      [
+        `Path: ${details.path}`,
+        `Kind: ${details.kind}`,
+        `Size: ${details.size}`,
+        `Modified: ${details.mtime ? new Date(details.mtime * 1000).toLocaleString() : 'Unknown'}`
+      ].join('\n')
+    )
+  }
 
   return (
     <div className="auxiliarybar">
       <div className="auxiliarybar__header">
         <span className="auxiliarybar__title">{title}</span>
-        {activeConnectionId && (
-          <div className="auxiliarybar__actions">
-            <div
-              className="auxiliarybar__action"
-              title="Refresh Remote Files"
-              onClick={() => {
-                void refreshConnection(activeConnectionId)
-              }}
-            >
-              <i className="codicon codicon-refresh" />
-            </div>
-          </div>
-        )}
       </div>
       <div className="auxiliarybar__content">
         {!activeConnectionId ? (
@@ -73,16 +101,90 @@ export function AuxiliarySidebar() {
           <div className="auxiliarybar__message auxiliarybar__message--error">{tree.error}</div>
         ) : isRootLoading ? (
           <div className="auxiliarybar__message">Loading remote files…</div>
-        ) : tree?.rootPath ? (
+        ) : tree?.currentPath ? (
           <>
-            <div className="auxiliarybar__path" title={tree.rootPath}>
-              {tree.rootPath}
+            <div className="auxiliarybar__path" title={tree.currentPath}>
+              {tree.currentPath}
+            </div>
+            <div className="auxiliarybar__toolbar">
+              <button
+                className="auxiliarybar__toolbar-button"
+                onClick={() => {
+                  if (!activeSession?.ptyId || !tree.currentPath) {
+                    return
+                  }
+
+                  window.terminalApi.write(activeSession.ptyId, `cd ${escapeShellPath(tree.currentPath)}\n`)
+                }}
+                title="Switch terminal to current file tree path"
+                type="button"
+              >
+                <i className="codicon codicon-terminal" />
+              </button>
+              <button
+                className={`auxiliarybar__toolbar-button${tree.followTerminalPath ? '' : ' auxiliarybar__toolbar-button--inactive'}`}
+                disabled={!activeConnectionId || !activeSession?.cwd}
+                onClick={() => {
+                  if (!activeConnectionId) {
+                    return
+                  }
+
+                  if (tree.followTerminalPath) {
+                    setFollowTerminalPath(activeConnectionId, false)
+                    return
+                  }
+
+                  setFollowTerminalPath(activeConnectionId, true)
+                  if (!activeSession?.cwd) {
+                    return
+                  }
+
+                  void loadPath(activeConnectionId, activeSession.cwd, { source: 'follow-terminal' }).catch((error: unknown) => {
+                    window.alert(error instanceof Error ? error.message : 'Terminal path unavailable')
+                  })
+                }}
+                title={tree.followTerminalPath ? 'Stop following terminal path' : 'Follow terminal path'}
+                type="button"
+              >
+                <i className="codicon codicon-folder-active" />
+              </button>
+              <button
+                className="auxiliarybar__toolbar-button"
+                onClick={() => {
+                  if (!activeConnectionId) {
+                    return
+                  }
+
+                  void uploadToCurrentPath(activeConnectionId)
+                }}
+                title="Upload file to current path"
+                type="button"
+              >
+                <i className="codicon codicon-cloud-upload" />
+              </button>
+              <button
+                className="auxiliarybar__toolbar-button"
+                onClick={() => {
+                  if (!activeConnectionId) {
+                    return
+                  }
+
+                  void refreshCurrentPath(activeConnectionId)
+                }}
+                title="Refresh current path"
+                type="button"
+              >
+                <i className="codicon codicon-refresh" />
+              </button>
             </div>
             <RemoteFileTree
               connectionId={activeConnectionId}
+              currentPath={tree.currentPath}
               expandedPaths={tree.expandedPaths}
               loadingPaths={tree.loadingPaths}
               nodes={tree.nodes}
+              onDownloadEntry={handleDownloadEntry}
+              onShowEntryDetails={handleShowEntryDetails}
               rootIds={tree.rootIds}
             />
           </>

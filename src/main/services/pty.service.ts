@@ -1,7 +1,7 @@
 import * as pty from 'node-pty'
+import os from 'os'
 import { IShellOptions } from '@shared/types/terminal'
 import { ITerminalService } from '@shared/types/services'
-import os from 'os'
 import { resolveShellLaunch } from './shell-launch'
 
 export class PtyService implements ITerminalService {
@@ -18,9 +18,10 @@ export class PtyService implements ITerminalService {
   spawn(
     options: IShellOptions,
     onData: (id: number, data: string) => void,
-    onExit: (id: number, code: number | undefined) => void
+    onExit: (id: number, code: number | undefined) => void,
+    id?: number
   ): number {
-    const id = this.nextId++
+    const processId = id ?? this.nextId++
     const { shell, args } = resolveShellLaunch(options, () => this.getDefaultShell())
 
     const cwd = options.cwd || os.homedir()
@@ -33,14 +34,14 @@ export class PtyService implements ITerminalService {
       env: { ...process.env, ...options.env } as Record<string, string>
     })
 
-    proc.onData((data) => onData(id, data))
+    proc.onData((data) => onData(processId, data))
     proc.onExit(({ exitCode }) => {
-      onExit(id, exitCode)
-      this.processes.delete(id)
+      onExit(processId, exitCode)
+      this.processes.delete(processId)
     })
 
-    this.processes.set(id, proc)
-    return id
+    this.processes.set(processId, proc)
+    return processId
   }
 
   write(id: number, data: string): void {
