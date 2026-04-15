@@ -47,3 +47,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.remote-file-tree__meta {
+  margin-left: auto;
+  color: var(--fg-sidebar-title);
+  font-size: 11px;
+}
+
+.remote-file-tree__empty {
+  color: var(--fg-sidebar-title);
+}

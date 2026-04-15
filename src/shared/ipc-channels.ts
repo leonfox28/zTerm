@@ -10,5 +10,7 @@ export const IPC_CHANNELS = {
   STORE_GET_ALL: 'store:getAll',
   CONNECTIONS_LIST: 'connections:list',
   CONNECTIONS_SAVE: 'connections:save',
-  CONNECTIONS_DELETE: 'connections:delete'
+  CONNECTIONS_DELETE: 'connections:delete',
+  SFTP_GET_INITIAL_DIRECTORY: 'sftp:getInitialDirectory',
+  SFTP_LIST_DIRECTORY: 'sftp:listDirectory'
 } as const

@@ -8,5 +8,9 @@ export const LAYOUT = {
     maxWidth: 500,
     autoHideThreshold: 120
   },
-  auxiliarySidebar: { width: 240 }
+  auxiliarySidebar: {
+    defaultWidth: 240,
+    minWidth: 180,
+    maxWidth: 520
+  }
 } as const

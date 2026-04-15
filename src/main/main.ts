@@ -4,16 +4,19 @@ import { PtyService } from './services/pty.service'
 import { StoreService } from './services/store.service'
 import { ConnectionService } from './services/connection.service'
 import { SshService } from './services/ssh.service'
+import { SftpService } from './services/sftp.service'
 import { TerminalManagerService } from './services/terminal-manager.service'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerStoreIpc } from './ipc/store.ipc'
 import { registerConnectionIpc } from './ipc/connection.ipc'
+import { registerSftpIpc } from './ipc/sftp.ipc'
 
 let mainWindow: BrowserWindow | null = null
 const ptyService = new PtyService()
 const storeService = new StoreService()
 const connectionService = new ConnectionService(storeService)
 const sshService = new SshService(connectionService)
+const sftpService = new SftpService(connectionService)
 const terminalManagerService = new TerminalManagerService(ptyService, sshService)
 
 function createWindow() {
@@ -41,6 +44,7 @@ app.whenReady().then(() => {
   registerTerminalIpc(terminalManagerService, () => mainWindow)
   registerStoreIpc(storeService)
   registerConnectionIpc(connectionService)
+  registerSftpIpc(sftpService)
   createWindow()
 
   app.on('activate', () => {

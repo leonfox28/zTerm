@@ -6,12 +6,14 @@ export type MainViewId = 'terminal' | 'settings'
 interface WorkbenchState {
   sidebarVisible: boolean
   sidebarWidth: number
+  auxiliarySidebarWidth: number
   activeViewId: string
   activeMainView: MainViewId
   connectionDialogOpen: boolean
   editingConnectionId: string | null
   toggleSidebar: () => void
   setSidebarWidth: (width: number) => void
+  setAuxiliarySidebarWidth: (width: number) => void
   setActiveView: (id: string) => void
   openSettingsView: () => void
   openTerminalView: () => void
@@ -22,6 +24,7 @@ interface WorkbenchState {
 export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
   sidebarVisible: true,
   sidebarWidth: LAYOUT.sidebar.defaultWidth,
+  auxiliarySidebarWidth: LAYOUT.auxiliarySidebar.defaultWidth,
   activeViewId: 'terminal',
   activeMainView: 'terminal',
   connectionDialogOpen: false,
@@ -36,6 +39,14 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       const clamped = Math.max(LAYOUT.sidebar.minWidth, Math.min(LAYOUT.sidebar.maxWidth, width))
       set({ sidebarWidth: clamped, sidebarVisible: true })
     }
+  },
+
+  setAuxiliarySidebarWidth: (width) => {
+    const clamped = Math.max(
+      LAYOUT.auxiliarySidebar.minWidth,
+      Math.min(LAYOUT.auxiliarySidebar.maxWidth, width)
+    )
+    set({ auxiliarySidebarWidth: clamped })
   },
 
   setActiveView: (id) => {
