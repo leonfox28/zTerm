@@ -43,6 +43,7 @@ export function AuxiliarySidebar() {
   const refreshCurrentPath = useRemoteFilesStore((state) => state.refreshCurrentPath)
   const uploadToCurrentPath = useRemoteFilesStore((state) => state.uploadToCurrentPath)
   const setFollowTerminalPath = useRemoteFilesStore((state) => state.setFollowTerminalPath)
+  const setTreeError = useRemoteFilesStore((state) => state.setTreeError)
 
   const activeConnectionId = activeSession?.connectionId ?? null
   const activeConnection = connections.find((connection) => connection.id === activeConnectionId)
@@ -53,16 +54,20 @@ export function AuxiliarySidebar() {
       return
     }
 
-    void ensureRootLoaded(activeConnectionId)
-  }, [activeConnectionId, ensureRootLoaded])
+    void ensureRootLoaded(activeConnectionId).catch((error: unknown) => {
+      setTreeError(activeConnectionId, error instanceof Error ? error.message : 'Failed to load remote files')
+    })
+  }, [activeConnectionId, ensureRootLoaded, setTreeError])
 
   useEffect(() => {
     if (!activeConnectionId || !activeSession?.cwd || !tree?.followTerminalPath || tree.currentPath === activeSession.cwd) {
       return
     }
 
-    void loadPath(activeConnectionId, activeSession.cwd, { source: 'follow-terminal' })
-  }, [activeConnectionId, activeSession?.cwd, loadPath, tree?.currentPath, tree?.followTerminalPath])
+    void loadPath(activeConnectionId, activeSession.cwd, { source: 'follow-terminal' }).catch((error: unknown) => {
+      setTreeError(activeConnectionId, error instanceof Error ? error.message : 'Terminal path unavailable')
+    })
+  }, [activeConnectionId, activeSession?.cwd, loadPath, setTreeError, tree?.currentPath, tree?.followTerminalPath])
   const title = activeConnection ? activeConnection.name : 'Remote Files'
   const isRootLoading = Boolean(activeConnectionId && !tree?.currentPath && tree?.loadingPaths.length)
 
@@ -71,7 +76,13 @@ export function AuxiliarySidebar() {
       return
     }
 
-    await window.sftpApi.downloadEntry(activeConnectionId, entry.path, entry.kind)
+    try {
+      setTreeError(activeConnectionId, null)
+      await window.sftpApi.downloadEntry(activeConnectionId, entry.path, entry.kind)
+    } catch (error) {
+      setTreeError(activeConnectionId, error instanceof Error ? error.message : `Failed to download ${entry.name}`)
+      throw error
+    }
   }
 
   const handleShowEntryDetails = async (entry: IRemoteFileEntry) => {
@@ -79,15 +90,21 @@ export function AuxiliarySidebar() {
       return
     }
 
-    const details = await window.sftpApi.getEntryDetails(activeConnectionId, entry.path)
-    window.alert(
-      [
-        `Path: ${details.path}`,
-        `Kind: ${details.kind}`,
-        `Size: ${details.size}`,
-        `Modified: ${details.mtime ? new Date(details.mtime * 1000).toLocaleString() : 'Unknown'}`
-      ].join('\n')
-    )
+    try {
+      setTreeError(activeConnectionId, null)
+      const details = await window.sftpApi.getEntryDetails(activeConnectionId, entry.path)
+      window.alert(
+        [
+          `Path: ${details.path}`,
+          `Kind: ${details.kind}`,
+          `Size: ${details.size}`,
+          `Modified: ${details.mtime ? new Date(details.mtime * 1000).toLocaleString() : 'Unknown'}`
+        ].join('\n')
+      )
+    } catch (error) {
+      setTreeError(activeConnectionId, error instanceof Error ? error.message : `Failed to load details for ${entry.name}`)
+      throw error
+    }
   }
 
   return (
@@ -137,7 +154,7 @@ export function AuxiliarySidebar() {
                 }
 
                 void loadPath(activeConnectionId, activeSession.cwd, { source: 'follow-terminal' }).catch((error: unknown) => {
-                  window.alert(error instanceof Error ? error.message : 'Terminal path unavailable')
+                  setTreeError(activeConnectionId, error instanceof Error ? error.message : 'Terminal path unavailable')
                 })
               }}
               title={tree.followTerminalPath ? 'Stop following terminal path' : 'Follow terminal path'}
@@ -152,7 +169,9 @@ export function AuxiliarySidebar() {
                   return
                 }
 
-                void uploadToCurrentPath(activeConnectionId)
+                void uploadToCurrentPath(activeConnectionId).catch((error: unknown) => {
+                  setTreeError(activeConnectionId, error instanceof Error ? error.message : 'Failed to upload file')
+                })
               }}
               title="Upload file to current path"
               type="button"

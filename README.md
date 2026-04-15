@@ -77,11 +77,14 @@ src/
 │   ├── main.ts
 │   ├── ipc/
 │   │   ├── connection.ipc.ts
+│   │   ├── sftp.ipc.ts
 │   │   ├── store.ipc.ts
 │   │   └── terminal.ipc.ts
 │   └── services/
 │       ├── connection.service.ts
 │       ├── pty.service.ts
+│       ├── sftp.service.ts
+│       ├── shell-integration.ts
 │       ├── shell-launch.ts
 │       ├── ssh.service.ts
 │       ├── store.service.ts
@@ -105,12 +108,14 @@ src/
     ├── config/
     ├── ipc-channels.ts
     └── types/
+        ├── sftp.ts
+        └── ...
 ```
 
 ## Architecture Notes
 
 - Main process owns PTY processes, SSH sessions, and persisted connection records.
-- Renderer communicates through `terminalApi`, `storeApi`, and `connectionsApi` exposed from preload.
+- Renderer communicates through `terminalApi`, `storeApi`, `connectionsApi`, and `sftpApi` exposed from preload.
 - SSH connections are persisted as records; terminal launch uses saved `connectionId` instead of transient form data.
 - The Activity Bar provides the two top-level workbench pages: Terminal and Settings.
 - The terminal workspace stays mounted while switching to the settings page, so existing sessions remain alive.
