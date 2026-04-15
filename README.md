@@ -11,9 +11,9 @@ A cross-platform terminal emulator and SSH client with a VS Code-like workbench 
 - Multi-tab terminal workspace with split panes and drag-to-resize
 - Reusable renderer-side context menu host
 - VS Code-like workbench UI with:
-  - Terminal page
-  - Settings page
-  - Connections sidebar on the terminal page
+  - Activity Bar top-level Terminal / Settings page switching
+  - Terminal page with connections sidebar + auxiliary remote file sidebar
+  - Settings page with VS Code-like search, TOC, and setting rows
   - SSH connection dialog for create/edit flows
 - Built-in settings page for theme, terminal font, shell path, and login shell
 - Dark+ / Light+ theme switching with persisted startup restore
@@ -112,8 +112,10 @@ src/
 - Main process owns PTY processes, SSH sessions, and persisted connection records.
 - Renderer communicates through `terminalApi`, `storeApi`, and `connectionsApi` exposed from preload.
 - SSH connections are persisted as records; terminal launch uses saved `connectionId` instead of transient form data.
+- The Activity Bar provides the two top-level workbench pages: Terminal and Settings.
 - The terminal workspace stays mounted while switching to the settings page, so existing sessions remain alive.
-- The terminal page always hosts the connections sidebar; SSH create/edit uses a modal dialog instead of a dedicated main-area page.
+- The terminal page hosts the connections sidebar and auxiliary remote file sidebar; the settings page uses its own internal TOC + content layout.
+- SSH create/edit uses a modal dialog instead of a dedicated main-area page.
 - Connection tree icons express connection type, not runtime connection state.
 - Failed SSH connection attempts surface in the terminal output area instead of mutating sidebar state.
 - VS Code source at `/Users/huyuanzhe/prj-code/vscode` remains the primary local UI reference.
@@ -133,12 +135,12 @@ src/
   - SSH create/edit dialog
   - Secure credential storage
   - SSH-backed terminal tabs
-- **Next major phase**
-  - SFTP / remote file workflows in the auxiliary sidebar
-  - Richer remote workflows and future protocol support (serial, RDP, etc.)
+- **Current major phase**
+  - SFTP / remote file workflows in the auxiliary sidebar are in place
+  - Next focus is richer remote workflows and future protocol support (serial, RDP, etc.)
 
 ## Roadmap
 
-- **Next**: SFTP browser, upload/download queue, remote file editing
+- **Next**: upload/download queue, drag-and-drop upload, remote file editing
 - **Later**: multi-window support, richer theme system, session recording/playback, command snippets
 - **Future**: serial connections, RDP, config sync, plugin/extensibility work

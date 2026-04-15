@@ -114,8 +114,8 @@ terminalApi.create({ cols, rows, ssh? })
 - 活动栏只保留两个主页面入口：
   - Terminal
   - Settings
-- Terminal 页面显示连接侧边栏
-- Settings 页面独占主区并隐藏终端专属左右栏
+- Terminal 页面保留三栏内容布局：连接侧边栏 / 终端主区 / Auxiliary Sidebar
+- Settings 页面独占主区，并采用 VS Code 风格的搜索栏 + 左侧 TOC + 右侧 setting rows 布局
 - SSH 连接新建 / 编辑通过终端页上的弹窗完成，不再占用独立主页面
 
 ### 4.3 主题与 CSS 变量体系

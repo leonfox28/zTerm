@@ -4,6 +4,7 @@ import { RemoteFileTree } from '../sidebar/RemoteFileTree'
 import { useConnectionsStore } from '../../stores/connections.store'
 import { useRemoteFilesStore } from '../../stores/remote-files.store'
 import { useTerminalStore } from '../../stores/terminal.store'
+import { WorkbenchPane } from './WorkbenchPane'
 
 function getActiveSession() {
   const { activeTabId, tabs, panes, sessions } = useTerminalStore.getState()
@@ -90,108 +91,103 @@ export function AuxiliarySidebar() {
   }
 
   return (
-    <div className="auxiliarybar">
-      <div className="auxiliarybar__header">
-        <span className="auxiliarybar__title">{title}</span>
-      </div>
-      <div className="auxiliarybar__content">
-        {!activeConnectionId ? (
-          <div className="auxiliarybar__message">Remote files are available for SSH terminals.</div>
-        ) : tree?.error ? (
-          <div className="auxiliarybar__message auxiliarybar__message--error">{tree.error}</div>
-        ) : isRootLoading ? (
-          <div className="auxiliarybar__message">Loading remote files…</div>
-        ) : tree?.currentPath ? (
-          <>
-            <div className="auxiliarybar__path" title={tree.currentPath}>
-              {tree.currentPath}
-            </div>
-            <div className="auxiliarybar__toolbar">
-              <button
-                className="auxiliarybar__toolbar-button"
-                onClick={() => {
-                  if (!activeSession?.ptyId || !tree.currentPath) {
-                    return
-                  }
+    <WorkbenchPane variant="auxiliary" title={title} contentClassName="auxiliarybar__content">
+      {!activeConnectionId ? (
+        <div className="auxiliarybar__message">Remote files are available for SSH terminals.</div>
+      ) : tree?.error ? (
+        <div className="auxiliarybar__message auxiliarybar__message--error">{tree.error}</div>
+      ) : isRootLoading ? (
+        <div className="auxiliarybar__message">Loading remote files…</div>
+      ) : tree?.currentPath ? (
+        <>
+          <div className="auxiliarybar__path" title={tree.currentPath}>
+            {tree.currentPath}
+          </div>
+          <div className="auxiliarybar__toolbar">
+            <button
+              className="workbench-pane__icon-button"
+              onClick={() => {
+                if (!activeSession?.ptyId || !tree.currentPath) {
+                  return
+                }
 
-                  window.terminalApi.write(activeSession.ptyId, `cd ${escapeShellPath(tree.currentPath)}\n`)
-                }}
-                title="Switch terminal to current file tree path"
-                type="button"
-              >
-                <i className="codicon codicon-terminal" />
-              </button>
-              <button
-                className={`auxiliarybar__toolbar-button${tree.followTerminalPath ? '' : ' auxiliarybar__toolbar-button--inactive'}`}
-                disabled={!activeConnectionId || !activeSession?.cwd}
-                onClick={() => {
-                  if (!activeConnectionId) {
-                    return
-                  }
+                window.terminalApi.write(activeSession.ptyId, `cd ${escapeShellPath(tree.currentPath)}\n`)
+              }}
+              title="Switch terminal to current file tree path"
+              type="button"
+            >
+              <i className="codicon codicon-terminal" />
+            </button>
+            <button
+              className={`workbench-pane__icon-button${tree.followTerminalPath ? '' : ' workbench-pane__icon-button--inactive'}`}
+              disabled={!activeConnectionId || !activeSession?.cwd}
+              onClick={() => {
+                if (!activeConnectionId) {
+                  return
+                }
 
-                  if (tree.followTerminalPath) {
-                    setFollowTerminalPath(activeConnectionId, false)
-                    return
-                  }
+                if (tree.followTerminalPath) {
+                  setFollowTerminalPath(activeConnectionId, false)
+                  return
+                }
 
-                  setFollowTerminalPath(activeConnectionId, true)
-                  if (!activeSession?.cwd) {
-                    return
-                  }
+                setFollowTerminalPath(activeConnectionId, true)
+                if (!activeSession?.cwd) {
+                  return
+                }
 
-                  void loadPath(activeConnectionId, activeSession.cwd, { source: 'follow-terminal' }).catch((error: unknown) => {
-                    window.alert(error instanceof Error ? error.message : 'Terminal path unavailable')
-                  })
-                }}
-                title={tree.followTerminalPath ? 'Stop following terminal path' : 'Follow terminal path'}
-                type="button"
-              >
-                <i className="codicon codicon-folder-active" />
-              </button>
-              <button
-                className="auxiliarybar__toolbar-button"
-                onClick={() => {
-                  if (!activeConnectionId) {
-                    return
-                  }
+                void loadPath(activeConnectionId, activeSession.cwd, { source: 'follow-terminal' }).catch((error: unknown) => {
+                  window.alert(error instanceof Error ? error.message : 'Terminal path unavailable')
+                })
+              }}
+              title={tree.followTerminalPath ? 'Stop following terminal path' : 'Follow terminal path'}
+              type="button"
+            >
+              <i className="codicon codicon-folder-active" />
+            </button>
+            <button
+              className="workbench-pane__icon-button"
+              onClick={() => {
+                if (!activeConnectionId) {
+                  return
+                }
 
-                  void uploadToCurrentPath(activeConnectionId)
-                }}
-                title="Upload file to current path"
-                type="button"
-              >
-                <i className="codicon codicon-cloud-upload" />
-              </button>
-              <button
-                className="auxiliarybar__toolbar-button"
-                onClick={() => {
-                  if (!activeConnectionId) {
-                    return
-                  }
+                void uploadToCurrentPath(activeConnectionId)
+              }}
+              title="Upload file to current path"
+              type="button"
+            >
+              <i className="codicon codicon-cloud-upload" />
+            </button>
+            <button
+              className="workbench-pane__icon-button"
+              onClick={() => {
+                if (!activeConnectionId) {
+                  return
+                }
 
-                  void refreshCurrentPath(activeConnectionId)
-                }}
-                title="Refresh current path"
-                type="button"
-              >
-                <i className="codicon codicon-refresh" />
-              </button>
-            </div>
-            <RemoteFileTree
-              connectionId={activeConnectionId}
-              currentPath={tree.currentPath}
-              expandedPaths={tree.expandedPaths}
-              loadingPaths={tree.loadingPaths}
-              nodes={tree.nodes}
-              onDownloadEntry={handleDownloadEntry}
-              onShowEntryDetails={handleShowEntryDetails}
-              rootIds={tree.rootIds}
-            />
-          </>
-        ) : (
-          <div className="auxiliarybar__message">No remote files found.</div>
-        )}
-      </div>
-    </div>
+                void refreshCurrentPath(activeConnectionId)
+              }}
+              title="Refresh current path"
+              type="button"
+            >
+              <i className="codicon codicon-refresh" />
+            </button>
+          </div>
+          <RemoteFileTree
+            connectionId={activeConnectionId}
+            currentPath={tree.currentPath}
+            expandedPaths={tree.expandedPaths}
+            loadingPaths={tree.loadingPaths}
+            nodes={tree.nodes}
+            onDownloadEntry={handleDownloadEntry}
+            onShowEntryDetails={handleShowEntryDetails}
+            rootIds={tree.rootIds}
+          />
+        </>
+      ) : (
+        <div className="auxiliarybar__message">No remote files found.</div>
+      )}
+    </WorkbenchPane>
   )
 }

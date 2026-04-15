@@ -12,7 +12,7 @@ import '../../styles/workbench.css'
 
 export function Workbench() {
   const { activeMainView, sidebarVisible, sidebarWidth, auxiliarySidebarWidth } = useWorkbenchStore()
-  const showSidebarChrome = activeMainView !== 'settings'
+  const showSidebarChrome = activeMainView === 'terminal'
   const showAuxiliaryChrome = activeMainView === 'terminal'
 
   const gridTemplateColumns = showSidebarChrome

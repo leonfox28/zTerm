@@ -35,6 +35,7 @@
   - `safeStorage` 凭据保存
   - 终端页 SSH 连接弹窗
   - 活动栏收敛为 Terminal / Settings
+  - Settings 页重构为 VS Code 风格搜索 + TOC + setting rows
   - Auxiliary Sidebar 远程文件树
   - 终端 cwd 与文件树路径双向同步
   - 文件树工具栏上传 / 刷新
@@ -86,8 +87,8 @@
 - **Settings**
 
 其中：
-- Terminal 页面显示连接侧边栏
-- Settings 页面隐藏终端页左右栏
+- Terminal 页面保留三栏内容布局：连接侧边栏 / 终端主区 / Auxiliary Sidebar
+- Settings 页面是独立主页面，内部为 VS Code 风格两栏：左侧分类 TOC，右侧设置内容
 
 ### 3.2 连接交互
 
@@ -157,6 +158,7 @@
   - 本地终端正常
   - 分屏正常
   - 设置页正常
+  - Settings 页搜索、TOC、高保真设置行样式正常
   - SSH 连接可成功建立
   - 错误凭据场景会在终端中显示失败信息
   - SSH 新建 / 编辑弹窗交互正常

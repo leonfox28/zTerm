@@ -1,5 +1,6 @@
 import { openSshConnectionCommand } from '../../commands/workbench.commands'
 import { ConnectionTree } from '../sidebar/ConnectionTree'
+import { WorkbenchPane } from './WorkbenchPane'
 
 function handleNewConnection() {
   openSshConnectionCommand()
@@ -7,18 +8,17 @@ function handleNewConnection() {
 
 export function Sidebar() {
   return (
-    <div className="sidebar">
-      <div className="sidebar__header">
-        <span className="sidebar__title">Connections</span>
-        <div className="sidebar__actions">
-          <div className="sidebar__action" title="New Connection" onClick={handleNewConnection}>
-            <i className="codicon codicon-plus" />
-          </div>
-        </div>
-      </div>
-      <div className="sidebar__content">
-        <ConnectionTree />
-      </div>
-    </div>
+    <WorkbenchPane
+      variant="primary"
+      title="Connections"
+      headerActions={
+        <button className="workbench-pane__icon-button" onClick={handleNewConnection} title="New Connection" type="button">
+          <i className="codicon codicon-plus" />
+        </button>
+      }
+      contentClassName="sidebar__content"
+    >
+      <ConnectionTree />
+    </WorkbenchPane>
   )
 }

@@ -7,21 +7,21 @@ interface WorkbenchState {
   sidebarVisible: boolean
   sidebarWidth: number
   auxiliarySidebarWidth: number
-  activeViewId: string
+  activeViewId: MainViewId
   activeMainView: MainViewId
   connectionDialogOpen: boolean
   editingConnectionId: string | null
   toggleSidebar: () => void
   setSidebarWidth: (width: number) => void
   setAuxiliarySidebarWidth: (width: number) => void
-  setActiveView: (id: string) => void
+  setActiveView: (id: MainViewId) => void
   openSettingsView: () => void
   openTerminalView: () => void
   openConnectionDialog: (connectionId?: string) => void
   closeConnectionDialog: () => void
 }
 
-export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
+export const useWorkbenchStore = create<WorkbenchState>((set) => ({
   sidebarVisible: true,
   sidebarWidth: LAYOUT.sidebar.defaultWidth,
   auxiliarySidebarWidth: LAYOUT.auxiliarySidebar.defaultWidth,
@@ -49,23 +49,17 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
     set({ auxiliarySidebarWidth: clamped })
   },
 
-  setActiveView: (id) => {
-    const state = get()
-    if (id === state.activeViewId && state.sidebarVisible && state.activeMainView === 'terminal') {
-      set({ sidebarVisible: false, connectionDialogOpen: false, editingConnectionId: null })
-    } else {
-      set({
-        activeViewId: id,
-        sidebarVisible: true,
-        activeMainView: 'terminal',
-        connectionDialogOpen: false,
-        editingConnectionId: null
-      })
-    }
-  },
+  setActiveView: (id) =>
+    set({
+      activeViewId: id,
+      activeMainView: id,
+      connectionDialogOpen: false,
+      editingConnectionId: null
+    }),
 
   openSettingsView: () =>
     set({
+      activeViewId: 'settings',
       activeMainView: 'settings',
       connectionDialogOpen: false,
       editingConnectionId: null
@@ -73,6 +67,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
 
   openTerminalView: () =>
     set({
+      activeViewId: 'terminal',
       activeMainView: 'terminal',
       connectionDialogOpen: false,
       editingConnectionId: null
