@@ -1,11 +1,65 @@
 import { Client, type ClientChannel, type ConnectConfig } from 'ssh2'
 import { readFileSync } from 'fs'
 import { IShellOptions } from '@shared/types/terminal'
+import { type IConnectionItem } from '@shared/types/store'
 import { ConnectionService } from './connection.service'
+import { createSshShellLaunchCommand } from './shell-integration'
 
 interface ActiveSshProcess {
   client: Client
   stream: ClientChannel
+}
+
+export function getSshConnection(connectionService: ConnectionService, connectionId: string): IConnectionItem {
+  const connection = connectionService.getConnection(connectionId)
+  if (!connection || connection.type !== 'ssh' || !connection.host || !connection.username) {
+    throw new Error('Saved SSH connection is missing required fields')
+  }
+
+  return connection
+}
+
+export function createSshConnectConfig(
+  connectionService: ConnectionService,
+  connectionId: string,
+  onDebug?: (message: string) => void
+): { connection: IConnectionItem; config: ConnectConfig } {
+  const connection = getSshConnection(connectionService, connectionId)
+  const config: ConnectConfig = {
+    host: connection.host,
+    port: connection.port ?? 22,
+    username: connection.username,
+    readyTimeout: 15000,
+    debug: onDebug
+  }
+
+  if (connection.authType === 'privateKey') {
+    if (!connection.privateKeyPath) {
+      throw new Error('Private key path is required')
+    }
+
+    try {
+      config.privateKey = readFileSync(connection.privateKeyPath)
+    } catch (error) {
+      throw new Error(
+        `Failed to read private key file: ${error instanceof Error ? error.message : 'Unknown file read error'}`
+      )
+    }
+
+    const passphrase = connectionService.resolvePassphrase(connectionId)
+    if (passphrase) {
+      config.passphrase = passphrase
+    }
+  } else {
+    const password = connectionService.resolvePassword(connectionId)
+    if (!password) {
+      throw new Error('No saved password is available for this SSH connection')
+    }
+
+    config.password = password
+  }
+
+  return { connection, config }
 }
 
 export class SshService {
@@ -24,19 +78,14 @@ export class SshService {
       throw new Error('Missing SSH connection id')
     }
 
-    const connection = this.connectionService.getConnection(connectionId)
-    if (!connection || connection.type !== 'ssh' || !connection.host || !connection.username) {
-      throw new Error('Saved SSH connection is missing required fields')
-    }
-
     const client = new Client()
-    const endpoint = `${connection.username}@${connection.host}:${connection.port ?? 22}`
 
     return new Promise<number>((resolve, reject) => {
       const debugLog: string[] = []
       let settled = false
       let ready = false
       let exited = false
+      let endpoint = 'unknown SSH endpoint'
 
       const pushDebugLog = (message: string) => {
         debugLog.push(message)
@@ -88,64 +137,46 @@ export class SshService {
         onExit(id, code)
       }
 
-      const config: ConnectConfig = {
-        host: connection.host,
-        port: connection.port ?? 22,
-        username: connection.username,
-        readyTimeout: 15000,
-        debug: (message: string) => {
+      let config: ConnectConfig
+
+      try {
+        const resolved = createSshConnectConfig(this.connectionService, connectionId, (message) => {
           pushDebugLog(message)
-        }
-      }
-
-      if (connection.authType === 'privateKey') {
-        if (!connection.privateKeyPath) {
-          rejectOnce('Private key path is required')
-          return
-        }
-
-        try {
-          config.privateKey = readFileSync(connection.privateKeyPath)
-        } catch (error) {
-          rejectOnce(
-            'Failed to read private key file',
-            error instanceof Error ? error.message : 'Unknown file read error'
-          )
-          return
-        }
-
-        const passphrase = this.connectionService.resolvePassphrase(connectionId)
-        if (passphrase) {
-          config.passphrase = passphrase
-        }
-      } else {
-        const password = this.connectionService.resolvePassword(connectionId)
-        if (!password) {
-          rejectOnce('No saved password is available for this SSH connection')
-          return
-        }
-
-        config.password = password
+        })
+        endpoint = `${resolved.connection.username}@${resolved.connection.host}:${resolved.connection.port ?? 22}`
+        config = resolved.config
+      } catch (error) {
+        rejectOnce(error instanceof Error ? error.message : 'Failed to prepare SSH connection')
+        return
       }
 
       client.on('ready', () => {
         ready = true
 
-        client.shell(
+        client.exec(
+          createSshShellLaunchCommand(),
           {
-            cols: options.cols,
-            rows: options.rows,
-            term: 'xterm-256color'
+            pty: {
+              cols: options.cols,
+              rows: options.rows,
+              term: 'xterm-256color'
+            },
+            env: {
+              TERM_PROGRAM: 'zterm'
+            }
           },
           (error, stream) => {
             if (error) {
               client.end()
-              rejectOnce('SSH handshake succeeded but opening the remote shell failed', error.message)
+              rejectOnce('SSH handshake succeeded but opening the remote terminal failed', error.message)
               return
             }
 
+            this.processes.set(id, { client, stream })
+
             stream.on('data', (data: Buffer | string) => {
-              onData(id, typeof data === 'string' ? data : data.toString('utf8'))
+              const text = typeof data === 'string' ? data : data.toString('utf8')
+              onData(id, text)
             })
 
             stream.on('close', () => {
@@ -153,7 +184,6 @@ export class SshService {
               client.end()
             })
 
-            this.processes.set(id, { client, stream })
             resolveOnce()
           }
         )

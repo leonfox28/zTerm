@@ -18,6 +18,10 @@
   background: var(--bg-hover);
 }
 
+.tree-item--muted {
+  color: var(--fg-sidebar-title);
+}
+
 .tree-item__arrow {
   font-size: 16px !important;
   width: 16px;
@@ -46,4 +50,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.remote-file-tree__meta {
+  margin-left: auto;
+  color: var(--fg-sidebar-title);
+  font-size: 11px;
+}
+
+.remote-file-tree__empty {
+  color: var(--fg-sidebar-title);
 }

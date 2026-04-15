@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
+import {
+  type IRemoteDirectoryResult,
+  type IRemoteEntryDetails,
+  type ISftpDownloadResult,
+  type ISftpUploadResult,
+  type RemoteFileKind
+} from '@shared/types/sftp'
 import { type IConnectionSaveResult, type IConnectionSummary, type IConnectionUpsertInput, type IStoreSchema } from '@shared/types/store'
 import { IShellOptions } from '@shared/types/terminal'
 
@@ -55,10 +62,30 @@ const connectionsApi = {
   }
 }
 
+const sftpApi = {
+  getInitialDirectory: (connectionId: string): Promise<IRemoteDirectoryResult> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_GET_INITIAL_DIRECTORY, connectionId)
+  },
+  listDirectory: (connectionId: string, path: string): Promise<IRemoteDirectoryResult> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_LIST_DIRECTORY, { connectionId, path })
+  },
+  uploadFile: (connectionId: string, destinationPath: string): Promise<ISftpUploadResult> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_UPLOAD_FILE, { connectionId, destinationPath })
+  },
+  downloadEntry: (connectionId: string, entryPath: string, kind: RemoteFileKind): Promise<ISftpDownloadResult> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_DOWNLOAD_ENTRY, { connectionId, entryPath, kind })
+  },
+  getEntryDetails: (connectionId: string, entryPath: string): Promise<IRemoteEntryDetails> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_GET_ENTRY_DETAILS, { connectionId, entryPath })
+  }
+}
+
 contextBridge.exposeInMainWorld('terminalApi', terminalApi)
 contextBridge.exposeInMainWorld('storeApi', storeApi)
 contextBridge.exposeInMainWorld('connectionsApi', connectionsApi)
+contextBridge.exposeInMainWorld('sftpApi', sftpApi)
 
 export type TerminalApi = typeof terminalApi
 export type StoreApi = typeof storeApi
 export type ConnectionsApi = typeof connectionsApi
+export type SftpApi = typeof sftpApi

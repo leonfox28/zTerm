@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
-import { Terminal } from '@xterm/xterm'
+import { Terminal, type IDisposable } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { getThemeById } from '@shared/config/theme.config'
@@ -8,6 +8,50 @@ import { useTerminalStore } from '../../stores/terminal.store'
 import '@xterm/xterm/css/xterm.css'
 
 const SPLIT_RESIZE_START_EVENT = 'zterm:split-resize-start'
+
+function decodeOscValue(value: string): string {
+  return value.replace(/\\x([0-9a-fA-F]{2})|\\\\/g, (match, hex: string | undefined) => {
+    if (hex) {
+      return String.fromCharCode(Number.parseInt(hex, 16))
+    }
+    return match === '\\\\' ? '\\' : match
+  })
+}
+
+function parseOsc7Cwd(data: string): string | null {
+  const value = data.trim()
+  if (!value.startsWith('file://')) {
+    return null
+  }
+
+  try {
+    const url = new URL(value)
+    if (url.protocol !== 'file:') {
+      return null
+    }
+
+    const cwd = decodeURIComponent(url.pathname)
+    return cwd.startsWith('/') ? cwd : null
+  } catch {
+    return null
+  }
+}
+
+function parseOsc633Cwd(data: string): string | null {
+  const segments = data.trim().split(';')
+  if (segments[0] !== 'P') {
+    return null
+  }
+
+  const cwdEntry = segments.find((segment) => segment.startsWith('Cwd='))
+  if (!cwdEntry) {
+    return null
+  }
+
+  const cwd = decodeOscValue(cwdEntry.slice(4))
+  return cwd.startsWith('/') ? cwd : null
+}
+
 const SPLIT_RESIZE_END_EVENT = 'zterm:split-resize-end'
 
 interface TerminalInstanceProps {
@@ -19,6 +63,12 @@ interface TerminalInstanceProps {
 export function TerminalInstance({ sessionId, active, visible }: TerminalInstanceProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const session = useTerminalStore((state) => state.sessions[sessionId])
+  const sessionKind = session?.kind
+  const sessionConnectionId = session?.connectionId
+  const hasSession = Boolean(session)
+  const setSessionPtyId = useTerminalStore((state) => state.setSessionPtyId)
+  const setSessionCwd = useTerminalStore((state) => state.setSessionCwd)
+  const clearSessionRuntime = useTerminalStore((state) => state.clearSessionRuntime)
   const termRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const ptyIdRef = useRef<number | null>(null)
@@ -124,7 +174,7 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
   }, [clearScheduledFit, scheduleFit])
 
   useEffect(() => {
-    if (!containerRef.current || !session) {
+    if (!containerRef.current || !hasSession) {
       return
     }
 
@@ -146,6 +196,26 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
     const fitAddon = new FitAddon()
     term.loadAddon(fitAddon)
     term.open(containerRef.current)
+
+    const oscHandlers: IDisposable[] = []
+    oscHandlers.push(
+      term.parser.registerOscHandler(7, (data) => {
+        const cwd = parseOsc7Cwd(data)
+        if (cwd) {
+          setSessionCwd(sessionId, cwd)
+        }
+        return true
+      })
+    )
+    oscHandlers.push(
+      term.parser.registerOscHandler(633, (data) => {
+        const cwd = parseOsc633Cwd(data)
+        if (cwd) {
+          setSessionCwd(sessionId, cwd)
+        }
+        return true
+      })
+    )
 
     fitAddonRef.current = fitAddon
     termRef.current = term
@@ -178,11 +248,11 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
     )
 
     const createOptions =
-      session.kind === 'ssh'
+      sessionKind === 'ssh'
         ? {
             cols: term.cols,
             rows: term.rows,
-            ssh: session.connectionId ? { connectionId: session.connectionId } : undefined
+            ssh: sessionConnectionId ? { connectionId: sessionConnectionId } : undefined
           }
         : {
             cols: term.cols,
@@ -204,6 +274,7 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
           }
 
           ptyIdRef.current = ptyId
+          setSessionPtyId(sessionId, ptyId)
 
           term.onData((data) => {
             if (ptyIdRef.current !== null) {
@@ -247,16 +318,31 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
       lastFitSizeRef.current = null
       removeDataListener()
       removeExitListener()
+      for (const handler of oscHandlers) {
+        handler.dispose()
+      }
       resizeObserver.disconnect()
       if (ptyIdRef.current !== null) {
         window.terminalApi.kill(ptyIdRef.current)
       }
+      clearSessionRuntime(sessionId)
       term.dispose()
       termRef.current = null
       fitAddonRef.current = null
       ptyIdRef.current = null
     }
-  }, [clearScheduledFit, performFit, scheduleFit, session, sessionId])
+  }, [
+    clearScheduledFit,
+    clearSessionRuntime,
+    performFit,
+    scheduleFit,
+    hasSession,
+    sessionConnectionId,
+    sessionKind,
+    sessionId,
+    setSessionCwd,
+    setSessionPtyId
+  ])
 
   useEffect(() => {
     const term = termRef.current

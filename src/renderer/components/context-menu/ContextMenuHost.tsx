@@ -81,13 +81,15 @@ export function ContextMenuHost() {
     return null
   }
 
-  const handleActionClick = (item: ContextMenuActionItem) => {
+  const handleActionClick = async (item: ContextMenuActionItem) => {
     if (item.disabled) {
       return
     }
 
     try {
-      item.onSelect()
+      await item.onSelect()
+    } catch {
+      // Action handlers surface their own UI errors when needed.
     } finally {
       closeContextMenu()
     }

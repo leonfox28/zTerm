@@ -17,8 +17,9 @@ export class TerminalManagerService implements ITerminalService {
     onData: (id: number, data: string) => void,
     onExit: (id: number, code: number | undefined) => void
   ): Promise<number> | number {
+    const id = this.nextId++
+
     if (options.ssh) {
-      const id = this.nextId++
       this.sessionKinds.set(id, 'ssh')
       return this.sshService.spawn(
         id,
@@ -28,15 +29,28 @@ export class TerminalManagerService implements ITerminalService {
           this.sessionKinds.delete(termId)
           onExit(termId, code)
         }
-      )
+      ).catch((error) => {
+        this.sessionKinds.delete(id)
+        throw error
+      })
     }
 
-    const id = this.ptyService.spawn(options, onData, (termId, code) => {
-      this.sessionKinds.delete(termId)
-      onExit(termId, code)
-    })
     this.sessionKinds.set(id, 'local')
-    return id
+    try {
+      this.ptyService.spawn(
+        options,
+        onData,
+        (termId, code) => {
+          this.sessionKinds.delete(termId)
+          onExit(termId, code)
+        },
+        id
+      )
+      return id
+    } catch (error) {
+      this.sessionKinds.delete(id)
+      throw error
+    }
   }
 
   write(id: number, data: string): void {

@@ -1,4 +1,4 @@
-import { ConnectionsApi, TerminalApi, StoreApi } from '../../preload/index'
+import { ConnectionsApi, SftpApi, TerminalApi, StoreApi } from '../../preload/index'
 
 declare module '*.css' {
   const content: Record<string, string>
@@ -10,5 +10,6 @@ declare global {
     terminalApi: TerminalApi
     storeApi: StoreApi
     connectionsApi: ConnectionsApi
+    sftpApi: SftpApi
   }
 }

@@ -26,7 +26,8 @@
 - **当前主分支**：`main`
 - **当前阶段**：
   - Phase 1 / 1.5 完成
-  - SSH 连接管理 change 已完成并归档
+  - SSH 连接管理相关能力已完成并归档
+  - SFTP 文件树与基础传输能力已完成并归档
 - **最近完成的能力**：
   - 快捷键系统
   - SSH 连接保存 / 编辑 / 删除
@@ -34,6 +35,11 @@
   - `safeStorage` 凭据保存
   - 终端页 SSH 连接弹窗
   - 活动栏收敛为 Terminal / Settings
+  - Settings 页重构为 VS Code 风格搜索 + TOC + setting rows
+  - Auxiliary Sidebar 远程文件树
+  - 终端 cwd 与文件树路径双向同步
+  - 文件树工具栏上传 / 刷新
+  - 远程文件与目录下载、详情菜单
 - **默认协作约束**：
   - 用中文回复
   - 使用 npm，不用 pnpm
@@ -65,6 +71,10 @@
 | `safeStorage` 凭据安全存储 | ✅ |
 | 终端页 SSH 连接弹窗 | ✅ |
 | 连接图标按类型展示 | ✅ |
+| 远程文件树工具栏（终端/文件树双向同步、上传、刷新） | ✅ |
+| 文件树父目录导航行 | ✅ |
+| 远程文件/目录右键下载与详情 | ✅ |
+| 文件树跟随终端路径 | ✅ |
 
 ---
 
@@ -77,8 +87,8 @@
 - **Settings**
 
 其中：
-- Terminal 页面显示连接侧边栏
-- Settings 页面隐藏终端页左右栏
+- Terminal 页面保留三栏内容布局：连接侧边栏 / 终端主区 / Auxiliary Sidebar
+- Settings 页面是独立主页面，内部为 VS Code 风格两栏：左侧分类 TOC，右侧设置内容
 
 ### 3.2 连接交互
 
@@ -106,17 +116,19 @@
 
 - `src/main/main.ts` — BrowserWindow + IPC 注册
 - `src/main/services/pty.service.ts` — 本地 PTY 管理
-- `src/main/services/ssh.service.ts` — SSH 会话管理
+- `src/main/services/ssh.service.ts` — SSH 会话管理与 shell integration cwd 上报
+- `src/main/services/sftp.service.ts` — SFTP 目录读取、上传、下载、详情入口
 - `src/main/services/terminal-manager.service.ts` — 统一本地/SSH 终端入口
 - `src/main/services/connection.service.ts` — 连接记录与凭据处理
 - `src/main/services/store.service.ts` — electron-store 封装
 - `src/main/ipc/terminal.ipc.ts` — terminal IPC handler
+- `src/main/ipc/sftp.ipc.ts` — SFTP IPC handler
 - `src/main/ipc/store.ipc.ts` — store IPC handler
 - `src/main/ipc/connection.ipc.ts` — connection IPC handler
 
 ### Preload 侧
 
-- `src/preload/index.ts` — 暴露 `window.terminalApi` / `window.storeApi` / `window.connectionsApi`
+- `src/preload/index.ts` — 暴露 `window.terminalApi` / `window.storeApi` / `window.connectionsApi` / `window.sftpApi`
 
 ### Renderer 侧
 
@@ -126,10 +138,12 @@
 - `src/renderer/components/connections/SshConnectionView.tsx` — 当前承载 SSH 连接弹窗与表单
 - `src/renderer/components/context-menu/ContextMenuHost.tsx` — 共享右键菜单 host
 - `src/renderer/components/sidebar/ConnectionTree.tsx` — 连接树 UI
+- `src/renderer/components/sidebar/RemoteFileTree.tsx` — Auxiliary Sidebar 远程文件树 UI
 - `src/renderer/stores/workbench.store.ts` — 主页面、侧边栏、连接弹窗状态
-- `src/renderer/stores/terminal.store.ts` — tab / pane / session 模型
+- `src/renderer/stores/terminal.store.ts` — tab / pane / session 模型与最近一次 cwd 缓存
 - `src/renderer/stores/settings.store.ts` — settings 初始化、持久化、主题应用
 - `src/renderer/stores/connections.store.ts` — 保存连接与 folder 状态
+- `src/renderer/stores/remote-files.store.ts` — 远程文件树缓存与展开状态
 - `src/renderer/keybindings/useWorkbenchKeybindings.ts` — 快捷键入口
 
 ---
@@ -144,10 +158,19 @@
   - 本地终端正常
   - 分屏正常
   - 设置页正常
+  - Settings 页搜索、TOC、高保真设置行样式正常
   - SSH 连接可成功建立
   - 错误凭据场景会在终端中显示失败信息
   - SSH 新建 / 编辑弹窗交互正常
   - 活动栏已收敛为 Terminal / Settings
+  - 本地 tab 显示远程文件空状态
+  - SSH tab 显示远程文件树
+  - 目录展开与刷新正常
+  - 文件树父目录导航正常
+  - 文件树右键下载 / 详情正常
+  - 工具栏上传 / 刷新 / 路径同步正常
+  - 文件树可跟随终端 cwd
+  - SFTP 失败仅显示在 Auxiliary Sidebar
 
 ### 当前非阻塞项
 
@@ -158,8 +181,8 @@
 ## 6. 建议的下一步
 
 优先考虑：
-1. **SFTP / 远程文件工作流**
-2. **辅助侧边栏真正承载远程文件树**
+1. **拖拽上传 + 传输队列 + 进度**
+2. **远程文件编辑（Monaco Editor）**
 3. **继续补齐 OpenSpec spec 的 Purpose 与后续能力规划**
 4. **未来协议扩展（串口 / RDP 等）**
 

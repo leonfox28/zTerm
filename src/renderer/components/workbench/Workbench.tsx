@@ -11,14 +11,14 @@ import { useWorkbenchStore } from '../../stores/workbench.store'
 import '../../styles/workbench.css'
 
 export function Workbench() {
-  const { activeMainView, sidebarVisible, sidebarWidth } = useWorkbenchStore()
-  const showSidebarChrome = activeMainView !== 'settings'
+  const { activeMainView, sidebarVisible, sidebarWidth, auxiliarySidebarWidth } = useWorkbenchStore()
+  const showSidebarChrome = activeMainView === 'terminal'
   const showAuxiliaryChrome = activeMainView === 'terminal'
 
   const gridTemplateColumns = showSidebarChrome
     ? sidebarVisible
-      ? `var(--activitybar-width) ${sidebarWidth}px 1fr ${showAuxiliaryChrome ? 'var(--auxiliarybar-width)' : '0px'}`
-      : `var(--activitybar-width) 0px 1fr ${showAuxiliaryChrome ? 'var(--auxiliarybar-width)' : '0px'}`
+      ? `var(--activitybar-width) ${sidebarWidth}px 1fr ${showAuxiliaryChrome ? `${auxiliarySidebarWidth}px` : '0px'}`
+      : `var(--activitybar-width) 0px 1fr ${showAuxiliaryChrome ? `${auxiliarySidebarWidth}px` : '0px'}`
     : `var(--activitybar-width) 0px 1fr 0px`
 
   return (
@@ -28,11 +28,16 @@ export function Workbench() {
       {showSidebarChrome && sidebarVisible && (
         <>
           <Sidebar />
-          <Sash />
+          <Sash side="left" />
         </>
       )}
       <MainArea />
-      {showAuxiliaryChrome && <AuxiliarySidebar />}
+      {showAuxiliaryChrome && (
+        <>
+          <Sash side="right" />
+          <AuxiliarySidebar />
+        </>
+      )}
       <StatusBar />
       <SshConnectionDialog />
       <ContextMenuHost />

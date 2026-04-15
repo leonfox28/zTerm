@@ -1,10 +1,12 @@
-import { openSettingsCommand } from '../../commands/workbench.commands'
-import { useWorkbenchStore } from '../../stores/workbench.store'
+import { useWorkbenchStore, type MainViewId } from '../../stores/workbench.store'
+
+const items: Array<{ id: MainViewId; icon: string; title: string }> = [
+  { id: 'terminal', icon: 'codicon-terminal', title: 'Terminal' },
+  { id: 'settings', icon: 'codicon-settings-gear', title: 'Settings' }
+]
 
 export function ActivityBar() {
-  const { activeViewId, activeMainView, sidebarVisible, setActiveView } = useWorkbenchStore()
-
-  const items = [{ id: 'terminal', icon: 'codicon-terminal', title: 'Terminal' }]
+  const { activeMainView, setActiveView } = useWorkbenchStore()
 
   return (
     <div className="activitybar">
@@ -12,22 +14,13 @@ export function ActivityBar() {
         {items.map((item) => (
           <div
             key={item.id}
-            className={`activitybar__item ${item.id === activeViewId && sidebarVisible ? 'activitybar__item--active' : ''}`}
+            className={`activitybar__item ${item.id === activeMainView ? 'activitybar__item--active' : ''}`}
             title={item.title}
             onClick={() => setActiveView(item.id)}
           >
             <i className={`codicon ${item.icon}`} />
           </div>
         ))}
-      </div>
-      <div className="activitybar__bottom">
-        <div
-          className={`activitybar__item ${activeMainView === 'settings' ? 'activitybar__item--active' : ''}`}
-          onClick={openSettingsCommand}
-          title="Settings"
-        >
-          <i className="codicon codicon-settings-gear" />
-        </div>
       </div>
     </div>
   )
