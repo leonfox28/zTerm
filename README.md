@@ -9,10 +9,10 @@ A cross-platform terminal emulator and SSH client with a VS Code-like workbench 
 - Saved SSH connections with create / edit / delete and folder grouping
 - Password / private-key authentication metadata with secure credential storage via Electron `safeStorage`
 - Multi-tab terminal workspace with split panes and drag-to-resize
-- Reusable renderer-side context menu host
+- Electron native context menus for terminal panes, connection items, and Explorer items
 - VS Code-like workbench UI with:
   - Activity Bar top-level Terminal / Settings page switching
-  - Terminal page with connections sidebar + auxiliary remote file sidebar
+  - Terminal page with connections sidebar + auxiliary Explorer sidebar
   - Settings page with VS Code-like search, TOC, and setting rows
   - SSH connection dialog for create/edit flows
 - Built-in settings page for theme, terminal font, shell path, login shell, and copy-on-selection
@@ -78,12 +78,16 @@ src/
 ├── main/
 │   ├── main.ts
 │   ├── ipc/
+│   │   ├── clipboard.ipc.ts
 │   │   ├── connection.ipc.ts
+│   │   ├── context-menu.ipc.ts
+│   │   ├── local-file-tree.ipc.ts
 │   │   ├── sftp.ipc.ts
 │   │   ├── store.ipc.ts
 │   │   └── terminal.ipc.ts
 │   └── services/
 │       ├── connection.service.ts
+│       ├── local-file-tree.service.ts
 │       ├── pty.service.ts
 │       ├── sftp.service.ts
 │       ├── shell-integration.ts
@@ -96,7 +100,6 @@ src/
 ├── renderer/
 │   ├── components/
 │   │   ├── connections/
-│   │   ├── context-menu/
 │   │   ├── settings/
 │   │   ├── sidebar/
 │   │   ├── terminal/
@@ -117,11 +120,13 @@ src/
 ## Architecture Notes
 
 - Main process owns PTY processes, SSH sessions, and persisted connection records.
-- Renderer communicates through `terminalApi`, `storeApi`, `connectionsApi`, and `sftpApi` exposed from preload.
+- Renderer communicates through preload bridges such as `terminalApi`, `storeApi`, `connectionsApi`, `sftpApi`, `localFileTreeApi`, `clipboardApi`, and `contextMenuApi`.
 - SSH connections are persisted as records; terminal launch uses saved `connectionId` instead of transient form data.
 - The Activity Bar provides the two top-level workbench pages: Terminal and Settings.
 - The terminal workspace stays mounted while switching to the settings page, so existing sessions remain alive.
-- The terminal page hosts the connections sidebar and auxiliary remote file sidebar; the settings page uses its own internal TOC + content layout.
+- The terminal page hosts the connections sidebar and auxiliary Explorer sidebar; the settings page uses its own internal TOC + content layout.
+- Context menus follow a VS Code-like renderer/main split: the renderer defines menu state and actions, while the main process only transports Electron native menu popup and selection events.
+- Explorer read / transfer failures surface in the StatusBar so the file tree stays visible and usable.
 - SSH create/edit uses a modal dialog instead of a dedicated main-area page.
 - Connection tree icons express connection type, not runtime connection state.
 - Failed SSH connection attempts surface in the terminal output area instead of mutating sidebar state.
@@ -133,7 +138,7 @@ src/
   - Workbench shell
   - Local PTY terminals
   - Split panes
-  - Shared context menu
+  - Native context menu
   - Settings page
   - Theme persistence
   - Keyboard shortcuts
@@ -144,6 +149,7 @@ src/
   - SSH-backed terminal tabs
 - **Current major phase**
   - SFTP / remote file workflows in the auxiliary sidebar are in place
+  - Explorer failures now surface through the StatusBar without replacing the file tree UI
   - Next focus is richer remote workflows and future protocol support (serial, RDP, etc.)
 
 ## Roadmap

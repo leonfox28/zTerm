@@ -4,6 +4,7 @@ import { FileTree } from '../sidebar/FileTree'
 import { useConnectionsStore } from '../../stores/connections.store'
 import { type ExplorerContext, useExplorerStore } from '../../stores/explorer.store'
 import { useTerminalStore, type TerminalSession } from '../../stores/terminal.store'
+import { useWorkbenchStore } from '../../stores/workbench.store'
 import { WorkbenchPane } from './WorkbenchPane'
 
 function escapeShellPath(path: string): string {
@@ -67,6 +68,11 @@ export function AuxiliarySidebar() {
   const activeConnection = connections.find((connection) => connection.id === activeConnectionId)
   const tree = explorerContext ? trees[explorerContext.key] : undefined
   const explorerKey = explorerContext?.key ?? null
+  const setStatusMessage = useWorkbenchStore((state) => state.setStatusMessage)
+
+  useEffect(() => {
+    setStatusMessage(tree?.error ?? null)
+  }, [setStatusMessage, tree?.error, explorerKey])
 
   useEffect(() => {
     if (!explorerContext) {
@@ -138,8 +144,6 @@ export function AuxiliarySidebar() {
     <WorkbenchPane variant="auxiliary" title={title} contentClassName="auxiliarybar__content">
       {!explorerContext ? (
         <div className="auxiliarybar__message">File browsing is available from terminal sessions.</div>
-      ) : tree?.error ? (
-        <div className="auxiliarybar__message auxiliarybar__message--error">{tree.error}</div>
       ) : isRootLoading ? (
         <div className="auxiliarybar__message">Loading files…</div>
       ) : tree?.currentPath ? (

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { type IFileTreeDirectoryResult, type IFileTreeEntry } from '@shared/types/file-tree'
+import { useWorkbenchStore } from './workbench.store'
 
 const ROOT_LOADING_KEY = '__root__'
 
@@ -70,6 +71,8 @@ function applyDirectoryResult(
   result: IFileTreeDirectoryResult,
   reset: boolean
 ): ExplorerTreeState {
+  useWorkbenchStore.getState().setStatusMessage(result.error ?? null)
+
   const nextNodes = reset ? {} : { ...tree.nodes }
   const childIds: string[] = []
 
@@ -87,9 +90,13 @@ function applyDirectoryResult(
     rootIds: reset ? childIds : tree.rootIds,
     nodes: nextNodes,
     expandedPaths: reset ? [] : tree.expandedPaths,
-    loadedPaths: reset ? [result.path] : unique([...tree.loadedPaths, result.path]),
+    loadedPaths: result.error
+      ? without(tree.loadedPaths, result.path)
+      : reset
+        ? [result.path]
+        : unique([...tree.loadedPaths, result.path]),
     loadingPaths: without(without(tree.loadingPaths, result.path), ROOT_LOADING_KEY),
-    error: null
+    error: result.error ?? null
   }
 
   if (!reset && nextTree.nodes[result.path]) {
@@ -103,6 +110,8 @@ function applyDirectoryResult(
 }
 
 function setLoading(tree: ExplorerTreeState, path: string): ExplorerTreeState {
+  useWorkbenchStore.getState().setStatusMessage(null)
+
   return {
     ...tree,
     loadingPaths: unique([...tree.loadingPaths, path]),
@@ -112,9 +121,12 @@ function setLoading(tree: ExplorerTreeState, path: string): ExplorerTreeState {
 }
 
 function setError(tree: ExplorerTreeState, path: string, error: string): ExplorerTreeState {
+  useWorkbenchStore.getState().setStatusMessage(error)
+
   return {
     ...tree,
     loadingPaths: without(tree.loadingPaths, path),
+    loadedPaths: without(tree.loadedPaths, path),
     error
   }
 }
@@ -242,7 +254,7 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
           return state
         }
 
-        const nextTree = applyDirectoryResult(tree, result, true)
+        const nextTree = result.error ? setError(tree, path, result.error) : applyDirectoryResult(tree, result, true)
         return {
           trees: {
             ...state.trees,
@@ -333,10 +345,23 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
           return state
         }
 
+        const nextTree = applyDirectoryResult(tree, result, false)
+        if (result.error) {
+          return {
+            trees: {
+              ...state.trees,
+              [context.key]: {
+                ...nextTree,
+                expandedPaths: without(nextTree.expandedPaths, entry.path)
+              }
+            }
+          }
+        }
+
         return {
           trees: {
             ...state.trees,
-            [context.key]: applyDirectoryResult(tree, result, false)
+            [context.key]: nextTree
           }
         }
       })
@@ -389,6 +414,7 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
       return true
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to upload file'
+      useWorkbenchStore.getState().setStatusMessage(message)
       set((state) => ({
         trees: {
           ...state.trees,
@@ -415,6 +441,7 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
   },
 
   setTreeError: (key, message) => {
+    useWorkbenchStore.getState().setStatusMessage(message)
     set((state) => ({
       trees: {
         ...state.trees,

@@ -42,6 +42,8 @@
   - 文件树工具栏上传 / 刷新
   - 远程文件与目录下载、详情菜单
   - 终端复制 / 粘贴、右键 Copy/Paste、copy-on-selection 设置
+- 连接树 / Explorer / 终端 Pane 右键菜单切换为 Electron 原生菜单
+- Explorer 错误改为显示在底部 StatusBar，文件树保持可继续操作
 - **默认协作约束**：
   - 用中文回复
   - 使用 npm，不用 pnpm
@@ -65,7 +67,7 @@
 | `ITerminalService` 抽象 | ✅ |
 | `electron-store` 持久化接入 | ✅ |
 | 分屏系统 | ✅ |
-| 共享右键菜单层 | ✅ |
+| Electron 原生右键菜单 | ✅ |
 | 设置页 | ✅ |
 | 快捷键系统 | ✅ |
 | SSH 连接保存 / 编辑 / 删除 | ✅ |
@@ -133,10 +135,11 @@
 - `src/main/ipc/store.ipc.ts` — store IPC handler
 - `src/main/ipc/connection.ipc.ts` — connection IPC handler
 - `src/main/ipc/clipboard.ipc.ts` — clipboard IPC handler
+- `src/main/ipc/context-menu.ipc.ts` — Electron 原生右键菜单 popup / selection IPC handler
 
 ### Preload 侧
 
-- `src/preload/index.ts` — 暴露 `window.terminalApi` / `window.storeApi` / `window.connectionsApi` / `window.sftpApi` / `window.localFileTreeApi` / `window.clipboardApi`
+- `src/preload/index.ts` — 暴露 `window.terminalApi` / `window.storeApi` / `window.connectionsApi` / `window.sftpApi` / `window.localFileTreeApi` / `window.clipboardApi` / `window.contextMenuApi`
 
 ### Renderer 侧
 
@@ -144,14 +147,17 @@
 - `src/renderer/components/terminal/` — TerminalTabs、TerminalPanel、TerminalPaneTree、TerminalInstance 等
 - `src/renderer/components/settings/SettingsView.tsx` — Settings 页面
 - `src/renderer/components/connections/SshConnectionView.tsx` — 当前承载 SSH 连接弹窗与表单
-- `src/renderer/components/context-menu/ContextMenuHost.tsx` — 共享右键菜单 host
-- `src/renderer/components/sidebar/ConnectionTree.tsx` — 连接树 UI
-- `src/renderer/components/sidebar/FileTree.tsx` — Auxiliary Sidebar 统一文件树 UI
-- `src/renderer/stores/workbench.store.ts` — 主页面、侧边栏、连接弹窗状态
+- `src/renderer/components/sidebar/ConnectionTree.tsx` — 连接树 UI（原生右键菜单入口之一）
+- `src/renderer/components/sidebar/FileTree.tsx` — Auxiliary Sidebar 统一文件树 UI（原生右键菜单入口之一）
+- `src/renderer/components/terminal/TerminalPaneTree.tsx` — 终端 Pane 树与原生右键菜单入口
+- `src/renderer/components/workbench/AuxiliarySidebar.tsx` — Explorer 区域容器，不再以内联错误覆盖文件树
+- `src/renderer/components/workbench/StatusBar.tsx` — 底部状态栏，承载 Explorer 错误消息
+- `src/renderer/stores/workbench.store.ts` — 主页面、侧边栏、连接弹窗与状态栏消息状态
 - `src/renderer/stores/terminal.store.ts` — tab / pane / session 模型与最近一次 cwd 缓存
 - `src/renderer/stores/settings.store.ts` — settings 初始化、持久化、主题应用
 - `src/renderer/stores/connections.store.ts` — 保存连接与 folder 状态
-- `src/renderer/stores/explorer.store.ts` — 统一 Explorer 文件树缓存、展开状态与 provider 路由
+- `src/renderer/stores/explorer.store.ts` — 统一 Explorer 文件树缓存、展开状态、provider 路由与错误同步到 StatusBar
+- `src/renderer/utils/context-menu.ts` — renderer 侧原生右键菜单序列化与回调分发
 - `src/renderer/keybindings/useWorkbenchKeybindings.ts` — 快捷键入口
 
 ---
@@ -178,7 +184,7 @@
   - 文件树右键下载 / 详情正常
   - 工具栏上传 / 刷新 / 路径同步正常
   - 文件树可跟随终端 cwd
-  - SFTP 失败仅显示在 Auxiliary Sidebar
+  - SFTP / 本地 Explorer 失败会显示在底部 StatusBar，文件树仍可继续操作
 
 ### 当前非阻塞项
 

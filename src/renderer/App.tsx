@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Workbench } from './components/workbench/Workbench'
 import { useWorkbenchKeybindings } from './keybindings/useWorkbenchKeybindings'
+import { useNativeContextMenu } from './utils/context-menu'
 import { useConnectionsStore } from './stores/connections.store'
 import { useSettingsStore } from './stores/settings.store'
 
@@ -9,6 +10,7 @@ function App() {
   const initSettings = useSettingsStore((s) => s.init)
 
   useWorkbenchKeybindings()
+  useNativeContextMenu()
 
   useEffect(() => {
     void initConnections()

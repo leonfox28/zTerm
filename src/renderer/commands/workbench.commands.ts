@@ -197,3 +197,9 @@ export const workbenchCommands: WorkbenchCommandDefinition[] = [
     execute: returnToTerminalCommand
   }
 ]
+
+const workbenchCommandMap = new Map(workbenchCommands.map((command) => [command.id, command]))
+
+export function executeWorkbenchCommand(commandId: WorkbenchCommandId) {
+  return workbenchCommandMap.get(commandId)?.execute()
+}

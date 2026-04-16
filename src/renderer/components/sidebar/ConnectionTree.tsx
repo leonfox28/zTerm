@@ -1,5 +1,5 @@
 import { openSshConnectionCommand } from '../../commands/workbench.commands'
-import { useContextMenuStore, type ContextMenuItem } from '../../stores/context-menu.store'
+import { showNativeContextMenu, type NativeMenuActionItem } from '../../utils/context-menu'
 import { useWorkbenchStore } from '../../stores/workbench.store'
 import { useConnectionsStore, isFolder, type ConnectionItem, type ConnectionFolder } from '../../stores/connections.store'
 import '../../styles/sidebar.css'
@@ -36,7 +36,6 @@ function TreeItem({
   depth: number
 }) {
   const { toggleFolder, deleteConnection } = useConnectionsStore()
-  const openContextMenu = useContextMenuStore((state) => state.openContextMenu)
 
   if (isFolder(node)) {
     return (
@@ -60,16 +59,16 @@ function TreeItem({
       onClick={() => openSshTerminal(node)}
       onContextMenu={(event) => {
         event.preventDefault()
-        const items: ContextMenuItem[] = [
+        const items: NativeMenuActionItem[] = [
           {
-            id: `connection-edit-${node.id}`,
-            type: 'action',
+            itemId: `connection-edit-${node.id}`,
+            type: 'normal',
             label: 'Edit Connection',
             onSelect: () => openSshConnectionCommand(node.id)
           },
           {
-            id: `connection-delete-${node.id}`,
-            type: 'action',
+            itemId: `connection-delete-${node.id}`,
+            type: 'normal',
             label: 'Delete Connection',
             onSelect: () => {
               void deleteConnection(node.id)
@@ -77,7 +76,7 @@ function TreeItem({
           }
         ]
 
-        openContextMenu({
+        void showNativeContextMenu({
           anchor: { x: event.clientX, y: event.clientY },
           items
         })

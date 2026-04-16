@@ -34,6 +34,10 @@ function sortEntries(entries: IFileTreeEntry[]): IFileTreeEntry[] {
   })
 }
 
+function isPermissionError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error && (error.code === 'EACCES' || error.code === 'EPERM')
+}
+
 export class LocalFileTreeService {
   async getInitialDirectory(preferredPath?: string): Promise<IFileTreeDirectoryResult> {
     const initialPath = preferredPath?.trim() || os.homedir()
@@ -47,28 +51,41 @@ export class LocalFileTreeService {
 
   async listDirectory(directoryPath: string): Promise<IFileTreeDirectoryResult> {
     const resolvedPath = path.resolve(directoryPath)
-    const entries = await fs.readdir(resolvedPath, { withFileTypes: true })
 
-    const fileEntries = await Promise.all(
-      entries
-        .filter((entry) => entry.name !== '.' && entry.name !== '..')
-        .map(async (entry) => {
-          const entryPath = path.join(resolvedPath, entry.name)
-          const stats = await fs.lstat(entryPath)
+    try {
+      const entries = await fs.readdir(resolvedPath, { withFileTypes: true })
 
-          return {
-            name: entry.name,
-            path: entryPath,
-            kind: toFileTreeEntryKind(entry),
-            size: stats.size,
-            mtime: Math.floor(stats.mtimeMs / 1000)
-          } satisfies IFileTreeEntry
-        })
-    )
+      const fileEntries = await Promise.all(
+        entries
+          .filter((entry) => entry.name !== '.' && entry.name !== '..')
+          .map(async (entry) => {
+            const entryPath = path.join(resolvedPath, entry.name)
+            const stats = await fs.lstat(entryPath)
 
-    return {
-      path: resolvedPath,
-      entries: sortEntries(fileEntries)
+            return {
+              name: entry.name,
+              path: entryPath,
+              kind: toFileTreeEntryKind(entry),
+              size: stats.size,
+              mtime: Math.floor(stats.mtimeMs / 1000)
+            } satisfies IFileTreeEntry
+          })
+      )
+
+      return {
+        path: resolvedPath,
+        entries: sortEntries(fileEntries)
+      }
+    } catch (error) {
+      if (!isPermissionError(error)) {
+        throw error
+      }
+
+      return {
+        path: resolvedPath,
+        entries: [],
+        error: `Permission denied: ${resolvedPath}`
+      }
     }
   }
 }
