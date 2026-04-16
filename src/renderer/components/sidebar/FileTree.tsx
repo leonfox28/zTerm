@@ -1,20 +1,20 @@
-import { type IRemoteFileEntry } from '@shared/types/sftp'
+import { type IFileTreeEntry } from '@shared/types/file-tree'
 import { useContextMenuStore, type ContextMenuItem } from '../../stores/context-menu.store'
-import { useRemoteFilesStore } from '../../stores/remote-files.store'
+import { type ExplorerContext, useExplorerStore } from '../../stores/explorer.store'
 import '../../styles/sidebar.css'
 
-interface RemoteFileTreeProps {
-  connectionId: string
+interface FileTreeProps {
+  context: ExplorerContext
   currentPath: string
   rootIds: string[]
-  nodes: Record<string, { entry: IRemoteFileEntry; children: string[] | null }>
+  nodes: Record<string, { entry: IFileTreeEntry; children: string[] | null }>
   expandedPaths: string[]
   loadingPaths: string[]
-  onDownloadEntry: (entry: IRemoteFileEntry) => void
-  onShowEntryDetails: (entry: IRemoteFileEntry) => void
+  onDownloadEntry?: (entry: IFileTreeEntry) => void
+  onShowEntryDetails?: (entry: IFileTreeEntry) => void
 }
 
-function getRemoteFileIcon(entry: IRemoteFileEntry, expanded: boolean): string {
+function getFileIcon(entry: IFileTreeEntry, expanded: boolean): string {
   if (entry.kind === 'directory') {
     return expanded ? 'codicon-folder-opened' : 'codicon-folder'
   }
@@ -27,28 +27,29 @@ function getRemoteFileIcon(entry: IRemoteFileEntry, expanded: boolean): string {
 }
 
 function getParentPath(path: string): string | null {
-  if (path === '/') {
+  const normalized = path.replace(/\/+$/, '') || path
+  const parentPath = normalized.slice(0, normalized.lastIndexOf('/'))
+
+  if (!parentPath) {
+    return normalized === '/' ? null : '/'
+  }
+
+  if (parentPath === normalized) {
     return null
   }
 
-  const trimmed = path.replace(/\/+$/, '')
-  const separatorIndex = trimmed.lastIndexOf('/')
-  if (separatorIndex <= 0) {
-    return '/'
-  }
-
-  return trimmed.slice(0, separatorIndex)
+  return parentPath
 }
 
-function ParentDirectoryItem({ connectionId }: { connectionId: string }) {
-  const goToParent = useRemoteFilesStore((state) => state.goToParent)
+function ParentDirectoryItem({ context }: { context: ExplorerContext }) {
+  const goToParent = useExplorerStore((state) => state.goToParent)
 
   return (
     <div
       className="tree-item tree-item--muted"
       style={{ paddingLeft: '8px' }}
       onClick={() => {
-        void goToParent(connectionId)
+        void goToParent(context)
       }}
       title="Go to parent directory"
     >
@@ -59,8 +60,8 @@ function ParentDirectoryItem({ connectionId }: { connectionId: string }) {
   )
 }
 
-function RemoteFileTreeItem({
-  connectionId,
+function FileTreeItem({
+  context,
   nodeId,
   depth,
   nodes,
@@ -69,17 +70,17 @@ function RemoteFileTreeItem({
   onDownloadEntry,
   onShowEntryDetails
 }: {
-  connectionId: string
+  context: ExplorerContext
   nodeId: string
   depth: number
-  nodes: Record<string, { entry: IRemoteFileEntry; children: string[] | null }>
+  nodes: Record<string, { entry: IFileTreeEntry; children: string[] | null }>
   expandedPaths: string[]
   loadingPaths: string[]
-  onDownloadEntry: (entry: IRemoteFileEntry) => void
-  onShowEntryDetails: (entry: IRemoteFileEntry) => void
+  onDownloadEntry?: (entry: IFileTreeEntry) => void
+  onShowEntryDetails?: (entry: IFileTreeEntry) => void
 }) {
-  const toggleDirectory = useRemoteFilesStore((state) => state.toggleDirectory)
-  const loadPath = useRemoteFilesStore((state) => state.loadPath)
+  const toggleDirectory = useExplorerStore((state) => state.toggleDirectory)
+  const loadPath = useExplorerStore((state) => state.loadPath)
   const openContextMenu = useContextMenuStore((state) => state.openContextMenu)
   const node = nodes[nodeId]
 
@@ -91,6 +92,7 @@ function RemoteFileTreeItem({
   const loading = loadingPaths.includes(node.entry.path)
   const isDirectory = node.entry.kind === 'directory'
   const hasLoadedChildren = Array.isArray(node.children)
+  const canShowContextActions = Boolean(onDownloadEntry || onShowEntryDetails)
 
   return (
     <>
@@ -102,31 +104,40 @@ function RemoteFileTreeItem({
             return
           }
 
-          void toggleDirectory(connectionId, node.entry)
+          void toggleDirectory(context, node.entry)
         }}
         onDoubleClick={() => {
           if (!isDirectory) {
             return
           }
 
-          void loadPath(connectionId, node.entry.path, { source: 'manual' })
+          void loadPath(context, node.entry.path, { source: 'manual' })
         }}
         onContextMenu={(event) => {
+          if (!canShowContextActions) {
+            return
+          }
+
           event.preventDefault()
-          const items: ContextMenuItem[] = [
-            {
-              id: `remote-download-${node.entry.path}`,
+          const items: ContextMenuItem[] = []
+
+          if (onDownloadEntry) {
+            items.push({
+              id: `file-tree-download-${node.entry.path}`,
               type: 'action',
               label: 'Download',
               onSelect: () => onDownloadEntry(node.entry)
-            },
-            {
-              id: `remote-details-${node.entry.path}`,
+            })
+          }
+
+          if (onShowEntryDetails) {
+            items.push({
+              id: `file-tree-details-${node.entry.path}`,
               type: 'action',
               label: 'Show Details',
               onSelect: () => onShowEntryDetails(node.entry)
-            }
-          ]
+            })
+          }
 
           openContextMenu({
             anchor: { x: event.clientX, y: event.clientY },
@@ -142,13 +153,13 @@ function RemoteFileTreeItem({
         ) : (
           <span className="tree-item__arrow-placeholder" />
         )}
-        <i className={`codicon ${getRemoteFileIcon(node.entry, expanded)} tree-item__icon`} />
+        <i className={`codicon ${getFileIcon(node.entry, expanded)} tree-item__icon`} />
         <span className="tree-item__label">{node.entry.name}</span>
         {loading && <span className="remote-file-tree__meta">Loading…</span>}
       </div>
       {isDirectory && expanded && hasLoadedChildren && node.children!.map((childId) => (
-        <RemoteFileTreeItem
-          connectionId={connectionId}
+        <FileTreeItem
+          context={context}
           depth={depth + 1}
           expandedPaths={expandedPaths}
           key={childId}
@@ -169,8 +180,8 @@ function RemoteFileTreeItem({
   )
 }
 
-export function RemoteFileTree({
-  connectionId,
+export function FileTree({
+  context,
   currentPath,
   rootIds,
   nodes,
@@ -178,15 +189,15 @@ export function RemoteFileTree({
   loadingPaths,
   onDownloadEntry,
   onShowEntryDetails
-}: RemoteFileTreeProps) {
+}: FileTreeProps) {
   const parentPath = getParentPath(currentPath)
 
   return (
     <div className="connection-tree remote-file-tree">
-      {parentPath && <ParentDirectoryItem connectionId={connectionId} />}
+      {parentPath && <ParentDirectoryItem context={context} />}
       {rootIds.map((nodeId) => (
-        <RemoteFileTreeItem
-          connectionId={connectionId}
+        <FileTreeItem
+          context={context}
           depth={0}
           expandedPaths={expandedPaths}
           key={nodeId}

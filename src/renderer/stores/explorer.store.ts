@@ -1,19 +1,28 @@
 import { create } from 'zustand'
-import { type IRemoteDirectoryResult, type IRemoteFileEntry } from '@shared/types/sftp'
+import { type IFileTreeDirectoryResult, type IFileTreeEntry } from '@shared/types/file-tree'
 
 const ROOT_LOADING_KEY = '__root__'
 
-interface RemoteFileNode {
-  entry: IRemoteFileEntry
+export type ExplorerProviderKind = 'local' | 'ssh'
+
+export interface ExplorerContext {
+  key: string
+  provider: ExplorerProviderKind
+  cwd?: string
+  connectionId?: string
+}
+
+interface ExplorerNode {
+  entry: IFileTreeEntry
   children: string[] | null
 }
 
 type LoadPathSource = 'initial' | 'manual' | 'follow-terminal' | 'refresh'
 
-interface RemoteConnectionTreeState {
+interface ExplorerTreeState {
   currentPath: string | null
   rootIds: string[]
-  nodes: Record<string, RemoteFileNode>
+  nodes: Record<string, ExplorerNode>
   expandedPaths: string[]
   loadingPaths: string[]
   loadedPaths: string[]
@@ -22,19 +31,19 @@ interface RemoteConnectionTreeState {
   requestVersion: number
 }
 
-interface RemoteFilesState {
-  trees: Record<string, RemoteConnectionTreeState>
-  ensureRootLoaded: (connectionId: string) => Promise<void>
-  loadPath: (connectionId: string, path: string, options?: { source?: LoadPathSource }) => Promise<void>
-  goToParent: (connectionId: string) => Promise<void>
-  toggleDirectory: (connectionId: string, entry: IRemoteFileEntry) => Promise<void>
-  refreshCurrentPath: (connectionId: string) => Promise<void>
-  uploadToCurrentPath: (connectionId: string) => Promise<boolean>
-  setFollowTerminalPath: (connectionId: string, enabled: boolean) => void
-  setTreeError: (connectionId: string, message: string | null) => void
+interface ExplorerState {
+  trees: Record<string, ExplorerTreeState>
+  ensureRootLoaded: (context: ExplorerContext) => Promise<void>
+  loadPath: (context: ExplorerContext, path: string, options?: { source?: LoadPathSource }) => Promise<void>
+  goToParent: (context: ExplorerContext) => Promise<void>
+  toggleDirectory: (context: ExplorerContext, entry: IFileTreeEntry) => Promise<void>
+  refreshCurrentPath: (context: ExplorerContext) => Promise<void>
+  uploadToCurrentPath: (context: ExplorerContext) => Promise<boolean>
+  setFollowTerminalPath: (key: string, enabled: boolean) => void
+  setTreeError: (key: string, message: string | null) => void
 }
 
-function createEmptyTreeState(): RemoteConnectionTreeState {
+function createEmptyTreeState(): ExplorerTreeState {
   return {
     currentPath: null,
     rootIds: [],
@@ -57,10 +66,10 @@ function without(values: string[], target: string): string[] {
 }
 
 function applyDirectoryResult(
-  tree: RemoteConnectionTreeState,
-  result: IRemoteDirectoryResult,
+  tree: ExplorerTreeState,
+  result: IFileTreeDirectoryResult,
   reset: boolean
-): RemoteConnectionTreeState {
+): ExplorerTreeState {
   const nextNodes = reset ? {} : { ...tree.nodes }
   const childIds: string[] = []
 
@@ -72,7 +81,7 @@ function applyDirectoryResult(
     childIds.push(entry.path)
   }
 
-  const nextTree: RemoteConnectionTreeState = {
+  const nextTree: ExplorerTreeState = {
     ...tree,
     currentPath: reset ? result.path : tree.currentPath,
     rootIds: reset ? childIds : tree.rootIds,
@@ -93,7 +102,7 @@ function applyDirectoryResult(
   return nextTree
 }
 
-function setLoading(tree: RemoteConnectionTreeState, path: string): RemoteConnectionTreeState {
+function setLoading(tree: ExplorerTreeState, path: string): ExplorerTreeState {
   return {
     ...tree,
     loadingPaths: unique([...tree.loadingPaths, path]),
@@ -102,7 +111,7 @@ function setLoading(tree: RemoteConnectionTreeState, path: string): RemoteConnec
   }
 }
 
-function setError(tree: RemoteConnectionTreeState, path: string, error: string): RemoteConnectionTreeState {
+function setError(tree: ExplorerTreeState, path: string, error: string): ExplorerTreeState {
   return {
     ...tree,
     loadingPaths: without(tree.loadingPaths, path),
@@ -111,24 +120,49 @@ function setError(tree: RemoteConnectionTreeState, path: string, error: string):
 }
 
 function getParentPath(path: string): string | null {
-  if (path === '/') {
+  const normalized = path.replace(/\/+$/, '') || path
+  const parentPath = normalized.slice(0, normalized.lastIndexOf('/'))
+
+  if (!parentPath) {
+    return normalized === '/' ? null : '/'
+  }
+
+  if (parentPath === normalized) {
     return null
   }
 
-  const trimmed = path.replace(/\/+$/, '')
-  const separatorIndex = trimmed.lastIndexOf('/')
-  if (separatorIndex <= 0) {
-    return '/'
-  }
-
-  return trimmed.slice(0, separatorIndex)
+  return parentPath
 }
 
-export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
+async function getInitialDirectory(context: ExplorerContext): Promise<IFileTreeDirectoryResult> {
+  if (context.provider === 'ssh') {
+    if (!context.connectionId) {
+      throw new Error('Missing SSH connection id')
+    }
+
+    return window.sftpApi.getInitialDirectory(context.connectionId)
+  }
+
+  return window.localFileTreeApi.getInitialDirectory(context.cwd)
+}
+
+async function listDirectory(context: ExplorerContext, path: string): Promise<IFileTreeDirectoryResult> {
+  if (context.provider === 'ssh') {
+    if (!context.connectionId) {
+      throw new Error('Missing SSH connection id')
+    }
+
+    return window.sftpApi.listDirectory(context.connectionId, path)
+  }
+
+  return window.localFileTreeApi.listDirectory(path)
+}
+
+export const useExplorerStore = create<ExplorerState>((set, get) => ({
   trees: {},
 
-  ensureRootLoaded: async (connectionId) => {
-    const currentTree = get().trees[connectionId] ?? createEmptyTreeState()
+  ensureRootLoaded: async (context) => {
+    const currentTree = get().trees[context.key] ?? createEmptyTreeState()
     if (currentTree.currentPath && currentTree.loadedPaths.includes(currentTree.currentPath)) {
       return
     }
@@ -137,20 +171,20 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
     let requestVersion = 0
 
     set((state) => {
-      const nextTree = setLoading(state.trees[connectionId] ?? createEmptyTreeState(), loadingKey)
+      const nextTree = setLoading(state.trees[context.key] ?? createEmptyTreeState(), loadingKey)
       requestVersion = nextTree.requestVersion
       return {
         trees: {
           ...state.trees,
-          [connectionId]: nextTree
+          [context.key]: nextTree
         }
       }
     })
 
     try {
-      const result = await window.sftpApi.getInitialDirectory(connectionId)
+      const result = await getInitialDirectory(context)
       set((state) => {
-        const tree = state.trees[connectionId] ?? createEmptyTreeState()
+        const tree = state.trees[context.key] ?? createEmptyTreeState()
         if (tree.requestVersion !== requestVersion) {
           return state
         }
@@ -158,14 +192,14 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
         return {
           trees: {
             ...state.trees,
-            [connectionId]: applyDirectoryResult(tree, result, true)
+            [context.key]: applyDirectoryResult(tree, result, true)
           }
         }
       })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load remote files'
+      const message = error instanceof Error ? error.message : 'Failed to load files'
       set((state) => {
-        const tree = state.trees[connectionId] ?? createEmptyTreeState()
+        const tree = state.trees[context.key] ?? createEmptyTreeState()
         if (tree.requestVersion !== requestVersion) {
           return state
         }
@@ -173,7 +207,7 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
         return {
           trees: {
             ...state.trees,
-            [connectionId]: {
+            [context.key]: {
               ...setError(tree, ROOT_LOADING_KEY, message),
               currentPath: null,
               rootIds: []
@@ -185,26 +219,25 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
     }
   },
 
-  loadPath: async (connectionId, path, options) => {
+  loadPath: async (context, path, options) => {
     const source = options?.source ?? 'manual'
-
     let requestVersion = 0
 
     set((state) => {
-      const nextTree = setLoading(state.trees[connectionId] ?? createEmptyTreeState(), path)
+      const nextTree = setLoading(state.trees[context.key] ?? createEmptyTreeState(), path)
       requestVersion = nextTree.requestVersion
       return {
         trees: {
           ...state.trees,
-          [connectionId]: nextTree
+          [context.key]: nextTree
         }
       }
     })
 
     try {
-      const result = await window.sftpApi.listDirectory(connectionId, path)
+      const result = await listDirectory(context, path)
       set((state) => {
-        const tree = state.trees[connectionId] ?? createEmptyTreeState()
+        const tree = state.trees[context.key] ?? createEmptyTreeState()
         if (tree.requestVersion !== requestVersion) {
           return state
         }
@@ -213,14 +246,14 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
         return {
           trees: {
             ...state.trees,
-            [connectionId]: source === 'manual' ? { ...nextTree, followTerminalPath: false } : nextTree
+            [context.key]: source === 'manual' ? { ...nextTree, followTerminalPath: false } : nextTree
           }
         }
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : `Failed to load ${path}`
       set((state) => {
-        const tree = state.trees[connectionId] ?? createEmptyTreeState()
+        const tree = state.trees[context.key] ?? createEmptyTreeState()
         if (tree.requestVersion !== requestVersion) {
           return state
         }
@@ -228,7 +261,7 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
         return {
           trees: {
             ...state.trees,
-            [connectionId]: setError(tree, path, message)
+            [context.key]: setError(tree, path, message)
           }
         }
       })
@@ -236,29 +269,29 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
     }
   },
 
-  goToParent: async (connectionId) => {
-    const tree = get().trees[connectionId] ?? createEmptyTreeState()
+  goToParent: async (context) => {
+    const tree = get().trees[context.key] ?? createEmptyTreeState()
     const parentPath = tree.currentPath ? getParentPath(tree.currentPath) : null
     if (!parentPath) {
       return
     }
 
-    await get().loadPath(connectionId, parentPath, { source: 'manual' })
+    await get().loadPath(context, parentPath, { source: 'manual' })
   },
 
-  toggleDirectory: async (connectionId, entry) => {
+  toggleDirectory: async (context, entry) => {
     if (entry.kind !== 'directory') {
       return
     }
 
-    const tree = get().trees[connectionId] ?? createEmptyTreeState()
+    const tree = get().trees[context.key] ?? createEmptyTreeState()
     if (tree.expandedPaths.includes(entry.path)) {
       set((state) => ({
         trees: {
           ...state.trees,
-          [connectionId]: {
-            ...(state.trees[connectionId] ?? createEmptyTreeState()),
-            expandedPaths: without((state.trees[connectionId] ?? createEmptyTreeState()).expandedPaths, entry.path)
+          [context.key]: {
+            ...(state.trees[context.key] ?? createEmptyTreeState()),
+            expandedPaths: without((state.trees[context.key] ?? createEmptyTreeState()).expandedPaths, entry.path)
           }
         }
       }))
@@ -268,9 +301,9 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
     set((state) => ({
       trees: {
         ...state.trees,
-        [connectionId]: {
-          ...(state.trees[connectionId] ?? createEmptyTreeState()),
-          expandedPaths: unique([...(state.trees[connectionId] ?? createEmptyTreeState()).expandedPaths, entry.path])
+        [context.key]: {
+          ...(state.trees[context.key] ?? createEmptyTreeState()),
+          expandedPaths: unique([...(state.trees[context.key] ?? createEmptyTreeState()).expandedPaths, entry.path])
         }
       }
     }))
@@ -282,20 +315,20 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
     let requestVersion = 0
 
     set((state) => {
-      const nextTree = setLoading(state.trees[connectionId] ?? createEmptyTreeState(), entry.path)
+      const nextTree = setLoading(state.trees[context.key] ?? createEmptyTreeState(), entry.path)
       requestVersion = nextTree.requestVersion
       return {
         trees: {
           ...state.trees,
-          [connectionId]: nextTree
+          [context.key]: nextTree
         }
       }
     })
 
     try {
-      const result = await window.sftpApi.listDirectory(connectionId, entry.path)
+      const result = await listDirectory(context, entry.path)
       set((state) => {
-        const tree = state.trees[connectionId] ?? createEmptyTreeState()
+        const tree = state.trees[context.key] ?? createEmptyTreeState()
         if (tree.requestVersion !== requestVersion) {
           return state
         }
@@ -303,14 +336,14 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
         return {
           trees: {
             ...state.trees,
-            [connectionId]: applyDirectoryResult(tree, result, false)
+            [context.key]: applyDirectoryResult(tree, result, false)
           }
         }
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : `Failed to load ${entry.path}`
       set((state) => {
-        const tree = state.trees[connectionId] ?? createEmptyTreeState()
+        const tree = state.trees[context.key] ?? createEmptyTreeState()
         if (tree.requestVersion !== requestVersion) {
           return state
         }
@@ -318,7 +351,7 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
         return {
           trees: {
             ...state.trees,
-            [connectionId]: setError(tree, entry.path, message)
+            [context.key]: setError(tree, entry.path, message)
           }
         }
       })
@@ -326,37 +359,41 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
     }
   },
 
-  refreshCurrentPath: async (connectionId) => {
-    const tree = get().trees[connectionId] ?? createEmptyTreeState()
+  refreshCurrentPath: async (context) => {
+    const tree = get().trees[context.key] ?? createEmptyTreeState()
     if (tree.currentPath) {
-      await get().loadPath(connectionId, tree.currentPath, { source: 'refresh' })
+      await get().loadPath(context, tree.currentPath, { source: 'refresh' })
       return
     }
 
-    await get().ensureRootLoaded(connectionId)
+    await get().ensureRootLoaded(context)
   },
 
-  uploadToCurrentPath: async (connectionId) => {
-    const tree = get().trees[connectionId] ?? createEmptyTreeState()
+  uploadToCurrentPath: async (context) => {
+    if (context.provider !== 'ssh' || !context.connectionId) {
+      return false
+    }
+
+    const tree = get().trees[context.key] ?? createEmptyTreeState()
     if (!tree.currentPath) {
       return false
     }
 
     try {
-      const result = await window.sftpApi.uploadFile(connectionId, tree.currentPath)
+      const result = await window.sftpApi.uploadFile(context.connectionId, tree.currentPath)
       if (result.canceled) {
         return false
       }
 
-      await get().refreshCurrentPath(connectionId)
+      await get().refreshCurrentPath(context)
       return true
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to upload file'
       set((state) => ({
         trees: {
           ...state.trees,
-          [connectionId]: {
-            ...(state.trees[connectionId] ?? createEmptyTreeState()),
+          [context.key]: {
+            ...(state.trees[context.key] ?? createEmptyTreeState()),
             error: message
           }
         }
@@ -365,24 +402,24 @@ export const useRemoteFilesStore = create<RemoteFilesState>((set, get) => ({
     }
   },
 
-  setFollowTerminalPath: (connectionId, enabled) => {
+  setFollowTerminalPath: (key, enabled) => {
     set((state) => ({
       trees: {
         ...state.trees,
-        [connectionId]: {
-          ...(state.trees[connectionId] ?? createEmptyTreeState()),
+        [key]: {
+          ...(state.trees[key] ?? createEmptyTreeState()),
           followTerminalPath: enabled
         }
       }
     }))
   },
 
-  setTreeError: (connectionId, message) => {
+  setTreeError: (key, message) => {
     set((state) => ({
       trees: {
         ...state.trees,
-        [connectionId]: {
-          ...(state.trees[connectionId] ?? createEmptyTreeState()),
+        [key]: {
+          ...(state.trees[key] ?? createEmptyTreeState()),
           error: message
         }
       }

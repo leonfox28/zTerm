@@ -5,12 +5,14 @@ import { StoreService } from './services/store.service'
 import { ConnectionService } from './services/connection.service'
 import { SshService } from './services/ssh.service'
 import { SftpService } from './services/sftp.service'
+import { LocalFileTreeService } from './services/local-file-tree.service'
 import { TerminalManagerService } from './services/terminal-manager.service'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerStoreIpc } from './ipc/store.ipc'
 import { registerClipboardIpc } from './ipc/clipboard.ipc'
 import { registerConnectionIpc } from './ipc/connection.ipc'
 import { registerSftpIpc } from './ipc/sftp.ipc'
+import { registerLocalFileTreeIpc } from './ipc/local-file-tree.ipc'
 
 let mainWindow: BrowserWindow | null = null
 const ptyService = new PtyService()
@@ -18,6 +20,7 @@ const storeService = new StoreService()
 const connectionService = new ConnectionService(storeService)
 const sshService = new SshService(connectionService)
 const sftpService = new SftpService(connectionService)
+const localFileTreeService = new LocalFileTreeService()
 const terminalManagerService = new TerminalManagerService(ptyService, sshService)
 
 function createWindow() {
@@ -47,6 +50,7 @@ app.whenReady().then(() => {
   registerClipboardIpc()
   registerConnectionIpc(connectionService)
   registerSftpIpc(sftpService)
+  registerLocalFileTreeIpc(localFileTreeService)
   createWindow()
 
   app.on('activate', () => {

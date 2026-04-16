@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '@shared/ipc-channels'
+import { type IFileTreeDirectoryResult } from '@shared/types/file-tree'
 import {
   type IRemoteDirectoryResult,
   type IRemoteEntryDetails,
@@ -80,6 +81,15 @@ const sftpApi = {
   }
 }
 
+const localFileTreeApi = {
+  getInitialDirectory: (path?: string): Promise<IFileTreeDirectoryResult> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.LOCAL_FILE_TREE_GET_INITIAL_DIRECTORY, { path })
+  },
+  listDirectory: (path: string): Promise<IFileTreeDirectoryResult> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.LOCAL_FILE_TREE_LIST_DIRECTORY, { path })
+  }
+}
+
 const clipboardApi = {
   readText: (): Promise<string> => {
     return ipcRenderer.invoke(IPC_CHANNELS.CLIPBOARD_READ_TEXT)
@@ -93,10 +103,12 @@ contextBridge.exposeInMainWorld('terminalApi', terminalApi)
 contextBridge.exposeInMainWorld('storeApi', storeApi)
 contextBridge.exposeInMainWorld('connectionsApi', connectionsApi)
 contextBridge.exposeInMainWorld('sftpApi', sftpApi)
+contextBridge.exposeInMainWorld('localFileTreeApi', localFileTreeApi)
 contextBridge.exposeInMainWorld('clipboardApi', clipboardApi)
 
 export type TerminalApi = typeof terminalApi
 export type StoreApi = typeof storeApi
 export type ConnectionsApi = typeof connectionsApi
 export type SftpApi = typeof sftpApi
+export type LocalFileTreeApi = typeof localFileTreeApi
 export type ClipboardApi = typeof clipboardApi
