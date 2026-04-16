@@ -1,97 +1,122 @@
-import { useEffect } from 'react'
-import { type IRemoteFileEntry } from '@shared/types/sftp'
-import { RemoteFileTree } from '../sidebar/RemoteFileTree'
+import { useEffect, useMemo } from 'react'
+import { type IFileTreeEntry } from '@shared/types/file-tree'
+import { FileTree } from '../sidebar/FileTree'
 import { useConnectionsStore } from '../../stores/connections.store'
-import { useRemoteFilesStore } from '../../stores/remote-files.store'
-import { useTerminalStore } from '../../stores/terminal.store'
+import { type ExplorerContext, useExplorerStore } from '../../stores/explorer.store'
+import { useTerminalStore, type TerminalSession } from '../../stores/terminal.store'
 import { WorkbenchPane } from './WorkbenchPane'
-
-function getActiveSession() {
-  const { activeTabId, tabs, panes, sessions } = useTerminalStore.getState()
-  if (activeTabId === null) {
-    return null
-  }
-
-  const activeTab = tabs.find((tab) => tab.id === activeTabId)
-  if (!activeTab) {
-    return null
-  }
-
-  const activePane = panes[activeTab.activePaneId]
-  if (!activePane || activePane.type !== 'leaf') {
-    return null
-  }
-
-  const session = sessions[activePane.sessionId]
-  if (!session || session.kind !== 'ssh' || !session.connectionId) {
-    return null
-  }
-
-  return session
-}
 
 function escapeShellPath(path: string): string {
   return `'${path.replaceAll("'", `'\\''`)}'`
 }
 
+function createExplorerContext(session: TerminalSession | null): ExplorerContext | null {
+  if (!session) {
+    return null
+  }
+
+  if (session.kind === 'ssh' && session.connectionId) {
+    return {
+      key: `ssh:${session.connectionId}`,
+      provider: 'ssh',
+      connectionId: session.connectionId,
+      cwd: session.cwd
+    }
+  }
+
+  if (session.kind === 'local') {
+    return {
+      key: `local:${session.id}`,
+      provider: 'local',
+      cwd: session.cwd
+    }
+  }
+
+  return null
+}
+
 export function AuxiliarySidebar() {
-  const activeSession = useTerminalStore(() => getActiveSession())
+  const activeSession = useTerminalStore((state) => {
+    if (state.activeTabId === null) {
+      return null
+    }
+
+    const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId)
+    if (!activeTab) {
+      return null
+    }
+
+    const activePane = state.panes[activeTab.activePaneId]
+    if (!activePane || activePane.type !== 'leaf') {
+      return null
+    }
+
+    return state.sessions[activePane.sessionId] ?? null
+  })
   const connections = useConnectionsStore((state) => state.connections)
-  const trees = useRemoteFilesStore((state) => state.trees)
-  const ensureRootLoaded = useRemoteFilesStore((state) => state.ensureRootLoaded)
-  const loadPath = useRemoteFilesStore((state) => state.loadPath)
-  const refreshCurrentPath = useRemoteFilesStore((state) => state.refreshCurrentPath)
-  const uploadToCurrentPath = useRemoteFilesStore((state) => state.uploadToCurrentPath)
-  const setFollowTerminalPath = useRemoteFilesStore((state) => state.setFollowTerminalPath)
-  const setTreeError = useRemoteFilesStore((state) => state.setTreeError)
+  const trees = useExplorerStore((state) => state.trees)
+  const ensureRootLoaded = useExplorerStore((state) => state.ensureRootLoaded)
+  const loadPath = useExplorerStore((state) => state.loadPath)
+  const refreshCurrentPath = useExplorerStore((state) => state.refreshCurrentPath)
+  const uploadToCurrentPath = useExplorerStore((state) => state.uploadToCurrentPath)
+  const setFollowTerminalPath = useExplorerStore((state) => state.setFollowTerminalPath)
+  const setTreeError = useExplorerStore((state) => state.setTreeError)
 
-  const activeConnectionId = activeSession?.connectionId ?? null
+  const explorerContext = useMemo(() => createExplorerContext(activeSession), [activeSession])
+  const activeConnectionId = explorerContext?.provider === 'ssh' ? explorerContext.connectionId ?? null : null
   const activeConnection = connections.find((connection) => connection.id === activeConnectionId)
-  const tree = activeConnectionId ? trees[activeConnectionId] : undefined
+  const tree = explorerContext ? trees[explorerContext.key] : undefined
+  const explorerKey = explorerContext?.key ?? null
 
   useEffect(() => {
-    if (!activeConnectionId) {
+    if (!explorerContext) {
       return
     }
 
-    void ensureRootLoaded(activeConnectionId).catch((error: unknown) => {
-      setTreeError(activeConnectionId, error instanceof Error ? error.message : 'Failed to load remote files')
+    void ensureRootLoaded(explorerContext).catch((error: unknown) => {
+      setTreeError(explorerContext.key, error instanceof Error ? error.message : 'Failed to load files')
     })
-  }, [activeConnectionId, ensureRootLoaded, setTreeError])
+  }, [explorerContext, ensureRootLoaded, setTreeError])
 
   useEffect(() => {
-    if (!activeConnectionId || !activeSession?.cwd || !tree?.followTerminalPath || tree.currentPath === activeSession.cwd) {
+    if (!explorerContext || !activeSession?.cwd || !tree?.followTerminalPath || tree.currentPath === activeSession.cwd) {
       return
     }
 
-    void loadPath(activeConnectionId, activeSession.cwd, { source: 'follow-terminal' }).catch((error: unknown) => {
-      setTreeError(activeConnectionId, error instanceof Error ? error.message : 'Terminal path unavailable')
+    void loadPath(explorerContext, activeSession.cwd, { source: 'follow-terminal' }).catch((error: unknown) => {
+      setTreeError(explorerContext.key, error instanceof Error ? error.message : 'Terminal path unavailable')
     })
-  }, [activeConnectionId, activeSession?.cwd, loadPath, setTreeError, tree?.currentPath, tree?.followTerminalPath])
-  const title = activeConnection ? activeConnection.name : 'Remote Files'
-  const isRootLoading = Boolean(activeConnectionId && !tree?.currentPath && tree?.loadingPaths.length)
+  }, [explorerContext, activeSession?.cwd, loadPath, setTreeError, tree?.currentPath, tree?.followTerminalPath])
+  const title = explorerContext?.provider === 'ssh' ? activeConnection?.name ?? 'Remote Files' : 'Explorer'
+  const isRootLoading = Boolean(explorerContext && !tree?.currentPath && tree?.loadingPaths.length)
 
-  const handleDownloadEntry = async (entry: IRemoteFileEntry) => {
+  const handleDownloadEntry = async (entry: IFileTreeEntry) => {
     if (!activeConnectionId) {
       return
     }
 
     try {
-      setTreeError(activeConnectionId, null)
+      if (explorerKey) {
+        setTreeError(explorerKey, null)
+      }
       await window.sftpApi.downloadEntry(activeConnectionId, entry.path, entry.kind)
     } catch (error) {
-      setTreeError(activeConnectionId, error instanceof Error ? error.message : `Failed to download ${entry.name}`)
+      if (explorerKey) {
+        setTreeError(explorerKey, error instanceof Error ? error.message : `Failed to download ${entry.name}`)
+      }
       throw error
     }
   }
 
-  const handleShowEntryDetails = async (entry: IRemoteFileEntry) => {
+  const handleShowEntryDetails = async (entry: IFileTreeEntry) => {
     if (!activeConnectionId) {
       return
     }
 
     try {
-      setTreeError(activeConnectionId, null)
+      if (explorerKey) {
+        setTreeError(explorerKey, null)
+      }
       const details = await window.sftpApi.getEntryDetails(activeConnectionId, entry.path)
       window.alert(
         [
@@ -102,19 +127,21 @@ export function AuxiliarySidebar() {
         ].join('\n')
       )
     } catch (error) {
-      setTreeError(activeConnectionId, error instanceof Error ? error.message : `Failed to load details for ${entry.name}`)
+      if (explorerKey) {
+        setTreeError(explorerKey, error instanceof Error ? error.message : `Failed to load details for ${entry.name}`)
+      }
       throw error
     }
   }
 
   return (
     <WorkbenchPane variant="auxiliary" title={title} contentClassName="auxiliarybar__content">
-      {!activeConnectionId ? (
-        <div className="auxiliarybar__message">Remote files are available for SSH terminals.</div>
+      {!explorerContext ? (
+        <div className="auxiliarybar__message">File browsing is available from terminal sessions.</div>
       ) : tree?.error ? (
         <div className="auxiliarybar__message auxiliarybar__message--error">{tree.error}</div>
       ) : isRootLoading ? (
-        <div className="auxiliarybar__message">Loading remote files…</div>
+        <div className="auxiliarybar__message">Loading files…</div>
       ) : tree?.currentPath ? (
         <>
           <div className="auxiliarybar__path" title={tree.currentPath}>
@@ -137,24 +164,24 @@ export function AuxiliarySidebar() {
             </button>
             <button
               className={`workbench-pane__icon-button${tree.followTerminalPath ? '' : ' workbench-pane__icon-button--inactive'}`}
-              disabled={!activeConnectionId || !activeSession?.cwd}
+              disabled={!activeSession?.cwd}
               onClick={() => {
-                if (!activeConnectionId) {
+                if (!explorerContext) {
                   return
                 }
 
                 if (tree.followTerminalPath) {
-                  setFollowTerminalPath(activeConnectionId, false)
+                  setFollowTerminalPath(explorerContext.key, false)
                   return
                 }
 
-                setFollowTerminalPath(activeConnectionId, true)
+                setFollowTerminalPath(explorerContext.key, true)
                 if (!activeSession?.cwd) {
                   return
                 }
 
-                void loadPath(activeConnectionId, activeSession.cwd, { source: 'follow-terminal' }).catch((error: unknown) => {
-                  setTreeError(activeConnectionId, error instanceof Error ? error.message : 'Terminal path unavailable')
+                void loadPath(explorerContext, activeSession.cwd, { source: 'follow-terminal' }).catch((error: unknown) => {
+                  setTreeError(explorerContext.key, error instanceof Error ? error.message : 'Terminal path unavailable')
                 })
               }}
               title={tree.followTerminalPath ? 'Stop following terminal path' : 'Follow terminal path'}
@@ -162,30 +189,24 @@ export function AuxiliarySidebar() {
             >
               <i className="codicon codicon-folder-active" />
             </button>
+            {explorerContext.provider === 'ssh' ? (
+              <button
+                className="workbench-pane__icon-button"
+                onClick={() => {
+                  void uploadToCurrentPath(explorerContext).catch((error: unknown) => {
+                    setTreeError(explorerContext.key, error instanceof Error ? error.message : 'Failed to upload file')
+                  })
+                }}
+                title="Upload file to current path"
+                type="button"
+              >
+                <i className="codicon codicon-cloud-upload" />
+              </button>
+            ) : null}
             <button
               className="workbench-pane__icon-button"
               onClick={() => {
-                if (!activeConnectionId) {
-                  return
-                }
-
-                void uploadToCurrentPath(activeConnectionId).catch((error: unknown) => {
-                  setTreeError(activeConnectionId, error instanceof Error ? error.message : 'Failed to upload file')
-                })
-              }}
-              title="Upload file to current path"
-              type="button"
-            >
-              <i className="codicon codicon-cloud-upload" />
-            </button>
-            <button
-              className="workbench-pane__icon-button"
-              onClick={() => {
-                if (!activeConnectionId) {
-                  return
-                }
-
-                void refreshCurrentPath(activeConnectionId)
+                void refreshCurrentPath(explorerContext)
               }}
               title="Refresh current path"
               type="button"
@@ -193,19 +214,19 @@ export function AuxiliarySidebar() {
               <i className="codicon codicon-refresh" />
             </button>
           </div>
-          <RemoteFileTree
-            connectionId={activeConnectionId}
+          <FileTree
+            context={explorerContext}
             currentPath={tree.currentPath}
             expandedPaths={tree.expandedPaths}
             loadingPaths={tree.loadingPaths}
             nodes={tree.nodes}
-            onDownloadEntry={handleDownloadEntry}
-            onShowEntryDetails={handleShowEntryDetails}
+            onDownloadEntry={explorerContext.provider === 'ssh' ? handleDownloadEntry : undefined}
+            onShowEntryDetails={explorerContext.provider === 'ssh' ? handleShowEntryDetails : undefined}
             rootIds={tree.rootIds}
           />
         </>
       ) : (
-        <div className="auxiliarybar__message">No remote files found.</div>
+        <div className="auxiliarybar__message">No files found.</div>
       )}
     </WorkbenchPane>
   )

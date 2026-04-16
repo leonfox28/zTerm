@@ -1,17 +1,8 @@
-export type RemoteFileKind = 'file' | 'directory' | 'symlink' | 'unknown'
+import { type IFileTreeDirectoryResult, type IFileTreeEntry, type FileTreeEntryKind } from './file-tree'
 
-export interface IRemoteFileEntry {
-  name: string
-  path: string
-  kind: RemoteFileKind
-  size: number
-  mtime: number
-}
-
-export interface IRemoteDirectoryResult {
-  path: string
-  entries: IRemoteFileEntry[]
-}
+export type RemoteFileKind = FileTreeEntryKind
+export type IRemoteFileEntry = IFileTreeEntry
+export type IRemoteDirectoryResult = IFileTreeDirectoryResult
 
 export interface IRemoteEntryDetails {
   path: string

@@ -12,11 +12,11 @@ export class TerminalManagerService implements ITerminalService {
     private readonly sshService: SshService
   ) {}
 
-  spawn(
+  async spawn(
     options: IShellOptions,
     onData: (id: number, data: string) => void,
     onExit: (id: number, code: number | undefined) => void
-  ): Promise<number> | number {
+  ): Promise<number> {
     const id = this.nextId++
 
     if (options.ssh) {
@@ -37,7 +37,7 @@ export class TerminalManagerService implements ITerminalService {
 
     this.sessionKinds.set(id, 'local')
     try {
-      this.ptyService.spawn(
+      await this.ptyService.spawn(
         options,
         onData,
         (termId, code) => {

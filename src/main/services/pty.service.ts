@@ -1,8 +1,10 @@
 import * as pty from 'node-pty'
 import os from 'os'
+import { promises as fs } from 'fs'
 import { IShellOptions } from '@shared/types/terminal'
 import { ITerminalService } from '@shared/types/services'
 import { resolveShellLaunch } from './shell-launch'
+import { createLocalShellLaunchConfig } from './local-shell-integration'
 
 export class PtyService implements ITerminalService {
   private processes = new Map<number, pty.IPty>()
@@ -15,27 +17,32 @@ export class PtyService implements ITerminalService {
     return process.env.SHELL || '/bin/zsh'
   }
 
-  spawn(
+  async spawn(
     options: IShellOptions,
     onData: (id: number, data: string) => void,
     onExit: (id: number, code: number | undefined) => void,
     id?: number
-  ): number {
+  ): Promise<number> {
     const processId = id ?? this.nextId++
-    const { shell, args } = resolveShellLaunch(options, () => this.getDefaultShell())
-
+    const { shell } = resolveShellLaunch(options, () => this.getDefaultShell())
     const cwd = options.cwd || os.homedir()
+    const shellConfig = await createLocalShellLaunchConfig(shell, options.loginShell ?? true)
 
-    const proc = pty.spawn(shell, args, {
+    const proc = pty.spawn(shellConfig.shell, shellConfig.args, {
       name: 'xterm-256color',
       cols: options.cols,
       rows: options.rows,
       cwd,
-      env: { ...process.env, ...options.env } as Record<string, string>
+      env: { ...process.env, ...options.env, ...shellConfig.env } as Record<string, string>
     })
 
     proc.onData((data) => onData(processId, data))
     proc.onExit(({ exitCode }) => {
+      void (async () => {
+        if (shellConfig.cleanupPath) {
+          await fs.rm(shellConfig.cleanupPath, { recursive: true, force: true }).catch(() => undefined)
+        }
+      })()
       onExit(processId, exitCode)
       this.processes.delete(processId)
     })

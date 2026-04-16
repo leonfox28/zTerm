@@ -2,6 +2,7 @@
 
 ## Purpose
 Define the auxiliary sidebar experience for browsing a read-only remote file tree over SFTP for SSH-backed terminal sessions.
+
 ## Requirements
 ### Requirement: Auxiliary sidebar shows a remote file tree for the active SSH terminal
 The system SHALL display a remote file tree in the auxiliary sidebar when the currently active terminal session is backed by a saved SSH connection, and the tree SHALL be scoped to the file tree's current directory path.
@@ -21,13 +22,13 @@ The system SHALL display a remote file tree in the auxiliary sidebar when the cu
 - **WHEN** the user triggers the toolbar action to sync the terminal to the current file tree path
 - **THEN** the active SSH terminal session changes its working directory to the current file tree path
 
-### Requirement: Auxiliary sidebar shows an empty state for local terminals
-The system MUST show a non-error empty state when the currently active terminal session is local and has no SSH connection context.
+### Requirement: Auxiliary sidebar shows an empty state when no terminal session is active
+The system MUST show a non-error empty state when the workbench has no active terminal session context for the auxiliary sidebar.
 
-#### Scenario: Active tab is a local terminal
-- **WHEN** the user activates a local terminal tab
-- **THEN** the auxiliary sidebar does not show a remote file tree
-- **AND** it displays an empty state explaining that remote files are only available for SSH terminals
+#### Scenario: No terminal tab is active
+- **WHEN** there is no active terminal tab or no active terminal session can be resolved
+- **THEN** the auxiliary sidebar does not show a local or remote file tree
+- **AND** it displays an empty state explaining that file browsing is available from terminal sessions
 
 ### Requirement: Remote directories load lazily as the user expands them
 The system SHALL load child entries for a remote directory only when that directory is expanded, while still treating the file tree path as the current browsing directory.
@@ -63,4 +64,3 @@ The system SHALL render a fixed first row for navigating to the parent directory
 #### Scenario: Current file tree path is the remote filesystem root
 - **WHEN** the current file tree path is `/`
 - **THEN** the file tree does not render a parent-navigation row
-

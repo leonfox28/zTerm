@@ -17,5 +17,7 @@ export const IPC_CHANNELS = {
   SFTP_LIST_DIRECTORY: 'sftp:listDirectory',
   SFTP_UPLOAD_FILE: 'sftp:uploadFile',
   SFTP_DOWNLOAD_ENTRY: 'sftp:downloadEntry',
-  SFTP_GET_ENTRY_DETAILS: 'sftp:getEntryDetails'
+  SFTP_GET_ENTRY_DETAILS: 'sftp:getEntryDetails',
+  LOCAL_FILE_TREE_GET_INITIAL_DIRECTORY: 'localFileTree:getInitialDirectory',
+  LOCAL_FILE_TREE_LIST_DIRECTORY: 'localFileTree:listDirectory'
 } as const

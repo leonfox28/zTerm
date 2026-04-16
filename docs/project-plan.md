@@ -101,7 +101,7 @@ terminalApi.create({ cols, rows, ssh? })
 │      │  Sidebar    │   Tab Bar        │                │
 │ Act  │ (terminal   ├──────────────────┤  Auxiliary     │
 │ ivity│  page only) │                  │  Sidebar       │
-│ Bar  │ Connections │  Terminal Area   │  Remote Files  │
+│ Bar  │ Connections │  Terminal Area   │   Explorer     │
 │(48px)│  + tree     │  (xterm.js)      │                │
 │      │             │                  │                │
 ├──────┴─────────────┴──────────────────┴────────────────┤
@@ -166,8 +166,8 @@ terminalApi.create({ cols, rows, ssh? })
 
 ### Phase 3：SFTP 文件管理（进行中）
 
-- [x] 远程文件树浏览（Auxiliary Sidebar 当前目录文件树）
-- [x] 文件上传 / 下载基础工作流（工具栏上传、右键下载）
+- [x] 统一 Explorer 文件树浏览（Auxiliary Sidebar，本地/SSH provider）
+- [x] 文件上传 / 下载基础工作流（SSH 工具栏上传、右键下载）
 - [ ] 拖拽上传 + 传输队列 + 进度
 - [ ] Monaco Editor 集成（远程文件编辑）
 
