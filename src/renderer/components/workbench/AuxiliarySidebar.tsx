@@ -138,8 +138,6 @@ export function AuxiliarySidebar() {
     <WorkbenchPane variant="auxiliary" title={title} contentClassName="auxiliarybar__content">
       {!explorerContext ? (
         <div className="auxiliarybar__message">File browsing is available from terminal sessions.</div>
-      ) : tree?.error ? (
-        <div className="auxiliarybar__message auxiliarybar__message--error">{tree.error}</div>
       ) : isRootLoading ? (
         <div className="auxiliarybar__message">Loading files…</div>
       ) : tree?.currentPath ? (

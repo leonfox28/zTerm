@@ -139,7 +139,7 @@ terminalApi.create({ cols, rows, ssh? })
 - [x] Sidebar 连接树基础结构
 - [x] Sidebar 可折叠 + 拖拽调宽
 - [x] 终端分屏（水平 / 垂直 split、pane resize、pane focus、pane close）
-- [x] 共享右键菜单层与 VS Code 视觉对齐
+- [x] Electron 原生右键菜单（renderer/main 分层，参考 VS Code 桌面端语义）
 - [x] 基础设置页
 - [x] 快捷键系统
 
@@ -168,6 +168,7 @@ terminalApi.create({ cols, rows, ssh? })
 
 - [x] 统一 Explorer 文件树浏览（Auxiliary Sidebar，本地/SSH provider）
 - [x] 文件上传 / 下载基础工作流（SSH 工具栏上传、右键下载）
+- [x] Explorer 错误下沉到 StatusBar，文件树失败时仍保持可操作
 - [ ] 拖拽上传 + 传输队列 + 进度
 - [ ] Monaco Editor 集成（远程文件编辑）
 
@@ -200,6 +201,8 @@ terminalApi.create({ cols, rows, ssh? })
 | 服务解耦 | `ITerminalService` + `TerminalManagerService` | 统一本地 PTY 与 SSH 会话入口 |
 | 连接编辑 UI | 终端页弹窗 | 避免额外主页面，保持工作台收敛 |
 | 连接图标语义 | 仅表达连接类型 | 保持导航列表稳定，不表达运行时状态 |
+| 右键菜单实现 | Electron 原生菜单 + renderer/main 分层 | 对齐 VS Code 桌面端语义，业务逻辑仍留在 renderer |
+| Explorer 错误展示 | 底部 StatusBar | 避免错误覆盖文件树，保留后续导航与重试能力 |
 
 ---
 

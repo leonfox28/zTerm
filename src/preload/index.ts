@@ -9,6 +9,7 @@ import {
   type RemoteFileKind
 } from '@shared/types/sftp'
 import { type IConnectionSaveResult, type IConnectionSummary, type IConnectionUpsertInput, type IStoreSchema } from '@shared/types/store'
+import { type ContextMenuClosed, type ContextMenuRequest, type ContextMenuSelection } from '@shared/types/context-menu'
 import { IShellOptions } from '@shared/types/terminal'
 
 const terminalApi = {
@@ -99,12 +100,30 @@ const clipboardApi = {
   }
 }
 
+const contextMenuApi = {
+  show: (request: ContextMenuRequest): Promise<void> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.CONTEXT_MENU_SHOW, request)
+  },
+  onItemSelected: (callback: (selection: ContextMenuSelection) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, selection: ContextMenuSelection) =>
+      callback(selection)
+    ipcRenderer.on(IPC_CHANNELS.CONTEXT_MENU_ITEM_SELECTED, listener)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.CONTEXT_MENU_ITEM_SELECTED, listener)
+  },
+  onMenuClosed: (callback: (payload: ContextMenuClosed) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: ContextMenuClosed) => callback(payload)
+    ipcRenderer.on(IPC_CHANNELS.CONTEXT_MENU_CLOSED, listener)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.CONTEXT_MENU_CLOSED, listener)
+  }
+}
+
 contextBridge.exposeInMainWorld('terminalApi', terminalApi)
 contextBridge.exposeInMainWorld('storeApi', storeApi)
 contextBridge.exposeInMainWorld('connectionsApi', connectionsApi)
 contextBridge.exposeInMainWorld('sftpApi', sftpApi)
 contextBridge.exposeInMainWorld('localFileTreeApi', localFileTreeApi)
 contextBridge.exposeInMainWorld('clipboardApi', clipboardApi)
+contextBridge.exposeInMainWorld('contextMenuApi', contextMenuApi)
 
 export type TerminalApi = typeof terminalApi
 export type StoreApi = typeof storeApi
@@ -112,3 +131,4 @@ export type ConnectionsApi = typeof connectionsApi
 export type SftpApi = typeof sftpApi
 export type LocalFileTreeApi = typeof localFileTreeApi
 export type ClipboardApi = typeof clipboardApi
+export type ContextMenuApi = typeof contextMenuApi

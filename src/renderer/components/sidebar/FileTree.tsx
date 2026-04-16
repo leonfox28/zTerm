@@ -1,5 +1,5 @@
 import { type IFileTreeEntry } from '@shared/types/file-tree'
-import { useContextMenuStore, type ContextMenuItem } from '../../stores/context-menu.store'
+import { showNativeContextMenu, type NativeMenuActionItem } from '../../utils/context-menu'
 import { type ExplorerContext, useExplorerStore } from '../../stores/explorer.store'
 import '../../styles/sidebar.css'
 
@@ -81,7 +81,6 @@ function FileTreeItem({
 }) {
   const toggleDirectory = useExplorerStore((state) => state.toggleDirectory)
   const loadPath = useExplorerStore((state) => state.loadPath)
-  const openContextMenu = useContextMenuStore((state) => state.openContextMenu)
   const node = nodes[nodeId]
 
   if (!node) {
@@ -119,12 +118,12 @@ function FileTreeItem({
           }
 
           event.preventDefault()
-          const items: ContextMenuItem[] = []
+          const items: NativeMenuActionItem[] = []
 
           if (onDownloadEntry) {
             items.push({
-              id: `file-tree-download-${node.entry.path}`,
-              type: 'action',
+              itemId: `file-tree-download-${node.entry.path}`,
+              type: 'normal',
               label: 'Download',
               onSelect: () => onDownloadEntry(node.entry)
             })
@@ -132,14 +131,14 @@ function FileTreeItem({
 
           if (onShowEntryDetails) {
             items.push({
-              id: `file-tree-details-${node.entry.path}`,
-              type: 'action',
+              itemId: `file-tree-details-${node.entry.path}`,
+              type: 'normal',
               label: 'Show Details',
               onSelect: () => onShowEntryDetails(node.entry)
             })
           }
 
-          openContextMenu({
+          void showNativeContextMenu({
             anchor: { x: event.clientX, y: event.clientY },
             items
           })

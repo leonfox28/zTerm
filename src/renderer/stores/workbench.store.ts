@@ -11,6 +11,7 @@ interface WorkbenchState {
   activeMainView: MainViewId
   connectionDialogOpen: boolean
   editingConnectionId: string | null
+  statusMessage: string | null
   toggleSidebar: () => void
   setSidebarWidth: (width: number) => void
   setAuxiliarySidebarWidth: (width: number) => void
@@ -19,6 +20,7 @@ interface WorkbenchState {
   openTerminalView: () => void
   openConnectionDialog: (connectionId?: string) => void
   closeConnectionDialog: () => void
+  setStatusMessage: (message: string | null) => void
 }
 
 export const useWorkbenchStore = create<WorkbenchState>((set) => ({
@@ -29,6 +31,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set) => ({
   activeMainView: 'terminal',
   connectionDialogOpen: false,
   editingConnectionId: null,
+  statusMessage: null,
 
   toggleSidebar: () => set((state) => ({ sidebarVisible: !state.sidebarVisible })),
 
@@ -86,5 +89,10 @@ export const useWorkbenchStore = create<WorkbenchState>((set) => ({
     set({
       connectionDialogOpen: false,
       editingConnectionId: null
+    }),
+
+  setStatusMessage: (message) =>
+    set({
+      statusMessage: message
     })
 }))

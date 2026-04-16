@@ -1,4 +1,4 @@
-import { ClipboardApi, ConnectionsApi, LocalFileTreeApi, SftpApi, TerminalApi, StoreApi } from '../../preload/index'
+import { ClipboardApi, ConnectionsApi, ContextMenuApi, LocalFileTreeApi, SftpApi, TerminalApi, StoreApi } from '../../preload/index'
 
 declare module '*.css' {
   const content: Record<string, string>
@@ -13,5 +13,6 @@ declare global {
     sftpApi: SftpApi
     localFileTreeApi: LocalFileTreeApi
     clipboardApi: ClipboardApi
+    contextMenuApi: ContextMenuApi
   }
 }

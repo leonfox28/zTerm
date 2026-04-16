@@ -11,4 +11,5 @@ export interface IFileTreeEntry {
 export interface IFileTreeDirectoryResult {
   path: string
   entries: IFileTreeEntry[]
+  error?: string
 }

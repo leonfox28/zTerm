@@ -13,6 +13,7 @@ import { registerClipboardIpc } from './ipc/clipboard.ipc'
 import { registerConnectionIpc } from './ipc/connection.ipc'
 import { registerSftpIpc } from './ipc/sftp.ipc'
 import { registerLocalFileTreeIpc } from './ipc/local-file-tree.ipc'
+import { registerContextMenuIpc } from './ipc/context-menu.ipc'
 
 let mainWindow: BrowserWindow | null = null
 const ptyService = new PtyService()
@@ -51,6 +52,7 @@ app.whenReady().then(() => {
   registerConnectionIpc(connectionService)
   registerSftpIpc(sftpService)
   registerLocalFileTreeIpc(localFileTreeService)
+  registerContextMenuIpc(() => mainWindow)
   createWindow()
 
   app.on('activate', () => {

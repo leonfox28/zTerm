@@ -5,7 +5,7 @@ import {
   useTerminalStore
 } from '../../stores/terminal.store'
 import { getTerminalClipboardRuntime } from '../../commands/terminal-clipboard.commands'
-import { type ContextMenuItem, useContextMenuStore } from '../../stores/context-menu.store'
+import { showNativeContextMenu, type NativeMenuActionItem } from '../../utils/context-menu'
 import { TerminalInstance } from './TerminalInstance'
 import { TerminalSplitSash } from './TerminalSplitSash'
 
@@ -145,7 +145,6 @@ export function TerminalPaneTree({ tabId, rootPaneId, activePaneId, visible }: T
   const setActivePane = useTerminalStore((state) => state.setActivePane)
   const closePane = useTerminalStore((state) => state.closePane)
   const resizeSplit = useTerminalStore((state) => state.resizeSplit)
-  const openContextMenu = useContextMenuStore((state) => state.openContextMenu)
 
   const leafLayouts: LayoutLeaf[] = []
   const sashLayouts: LayoutSash[] = []
@@ -179,36 +178,35 @@ export function TerminalPaneTree({ tabId, rootPaneId, activePaneId, visible }: T
                   }
                 })
                 const clipboardRuntime = getTerminalClipboardRuntime(session.id)
-                const items: ContextMenuItem[] = [
+                const items: NativeMenuActionItem[] = [
                   {
-                    id: `terminal-pane-copy-${leaf.paneId}`,
-                    type: 'action',
+                    itemId: `terminal-pane-copy-${leaf.paneId}`,
+                    type: 'normal',
                     label: 'Copy',
-                    shortcutLabel: '⌘C',
-                    disabled: !clipboardRuntime?.hasSelection(),
+                    accelerator: 'CommandOrControl+C',
+                    enabled: Boolean(clipboardRuntime?.hasSelection()),
                     onSelect: async () => {
                       await clipboardRuntime?.copySelection()
                     }
                   },
                   {
-                    id: `terminal-pane-paste-${leaf.paneId}`,
-                    type: 'action',
+                    itemId: `terminal-pane-paste-${leaf.paneId}`,
+                    type: 'normal',
                     label: 'Paste',
-                    shortcutLabel: '⌘V',
+                    accelerator: 'CommandOrControl+V',
                     onSelect: async () => {
                       await clipboardRuntime?.pasteClipboard()
                     }
                   },
                   {
-                    id: `terminal-pane-separator-${leaf.paneId}`,
+                    itemId: `terminal-pane-separator-${leaf.paneId}`,
                     type: 'separator'
                   },
                   {
-                    id: `terminal-pane-close-${leaf.paneId}`,
-                    type: 'action',
-                    icon: 'codicon-close',
+                    itemId: `terminal-pane-close-${leaf.paneId}`,
+                    type: 'normal',
                     label: 'Close Terminal',
-                    shortcutLabel: '⌘W',
+                    accelerator: 'CommandOrControl+W',
                     onSelect: () => {
                       closePane(tabId, leaf.paneId)
                       requestAnimationFrame(() => {
@@ -218,7 +216,7 @@ export function TerminalPaneTree({ tabId, rootPaneId, activePaneId, visible }: T
                   }
                 ]
 
-                openContextMenu({
+                void showNativeContextMenu({
                   anchor: {
                     x: event.clientX,
                     y: event.clientY

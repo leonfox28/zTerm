@@ -267,6 +267,7 @@
   display: flex;
   align-items: center;
   flex: 1;
+  min-width: 0;
 }
 
 .statusbar__right {
@@ -289,6 +290,20 @@
 
 .statusbar__item .codicon {
   font-size: 14px;
+}
+
+.statusbar__item--message {
+  min-width: 0;
+}
+
+.statusbar__item--message span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusbar__item--error {
+  max-width: 100%;
 }
 
 /* ===== Sash (Resize Handle) ===== */
