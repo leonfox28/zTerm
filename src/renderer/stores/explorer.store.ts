@@ -126,6 +126,7 @@ function setError(tree: ExplorerTreeState, path: string, error: string): Explore
   return {
     ...tree,
     loadingPaths: without(tree.loadingPaths, path),
+    loadedPaths: without(tree.loadedPaths, path),
     error
   }
 }
@@ -253,7 +254,7 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
           return state
         }
 
-        const nextTree = applyDirectoryResult(tree, result, true)
+        const nextTree = result.error ? setError(tree, path, result.error) : applyDirectoryResult(tree, result, true)
         return {
           trees: {
             ...state.trees,
