@@ -28,6 +28,7 @@ local terminal, SSH sessions, and file workflows.
 - SFTP remote file workflows including directory browsing, upload, download, and details
 - Explorer failures surfaced through the Status Bar without replacing the file tree UI
 - Built-in settings page for theme, terminal font, shell path, login shell, and copy-on-selection
+- Packaged-app update checks backed by GitHub Releases, with user confirmation before download and restart
 - Terminal clipboard support with `Cmd+C` / `Cmd+V`, pane context menu copy/paste, and optional copy-on-selection
 - Dark+ / Light+ theme switching with persisted startup restore
 - Keyboard shortcuts for new terminal, close terminal pane, split panes, tab switching, terminal clipboard, and settings navigation
@@ -45,7 +46,7 @@ local terminal, SSH sessions, and file workflows.
 | Persistence | electron-store |
 | Secure credentials | Electron `safeStorage` |
 | Icons | `@vscode/codicons` |
-| Build | electron-vite 5 + Vite 6 |
+| Build | electron-vite 5 + Vite 6 + electron-builder |
 | Package manager | npm |
 
 ## Prerequisites
@@ -73,9 +74,26 @@ chmod +x node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper
 |---------|-------------|
 | `npm run dev` | Start in development mode |
 | `npm run build` | Build for production |
+| `npm run pack` | Build and create an unpacked app for the current platform |
+| `npm run dist` | Build and create distributable artifacts for the current platform |
+| `npm run release` | Build and publish release artifacts when `GH_TOKEN` and a release tag are available |
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | Run TypeScript type check without emitting files |
 | `npm run format` | Run Prettier over `src/` |
+
+## Releases And Updates
+
+zTerm uses `electron-builder` and `electron-updater` for packaged releases.
+Maintainers publish by updating `package.json`, pushing a matching `v*` tag,
+and letting the GitHub Actions release workflow upload installers and updater
+metadata to GitHub Releases.
+
+Packaged apps check for updates once after launch and Settings exposes a manual
+`Updates` category. zTerm asks before downloading an available update and asks
+again before restarting to install it.
+
+See [docs/release.md](docs/release.md) for local packaging commands, tag
+publishing, end-user update behavior, and signing/notarization secrets.
 
 ## Architecture Overview
 
@@ -105,7 +123,7 @@ chmod +x node_modules/node-pty/prebuilds/darwin-arm64/spawn-helper
 ```
 
 - Main process owns PTY processes, SSH sessions, SFTP access, native menus, persisted records, and credential handling.
-- Renderer communicates through preload bridges such as `terminalApi`, `storeApi`, `connectionsApi`, `sftpApi`, `localFileTreeApi`, `clipboardApi`, and `contextMenuApi`.
+- Renderer communicates through preload bridges such as `terminalApi`, `storeApi`, `connectionsApi`, `sftpApi`, `localFileTreeApi`, `clipboardApi`, `contextMenuApi`, and `updateApi`.
 - Shared IPC channels are defined in `src/shared/ipc-channels.ts`.
 - SSH terminal launch uses saved `connectionId` records instead of transient form data.
 - Context menus follow a VS Code-like renderer/main split: the renderer defines menu state and actions, while the main process transports native Electron menu popup and selection events.

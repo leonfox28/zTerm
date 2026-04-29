@@ -11,6 +11,7 @@ import {
 import { type IConnectionSaveResult, type IConnectionSummary, type IConnectionUpsertInput, type IStoreSchema } from '@shared/types/store'
 import { type ContextMenuClosed, type ContextMenuRequest, type ContextMenuSelection } from '@shared/types/context-menu'
 import { IShellOptions } from '@shared/types/terminal'
+import { type IUpdateState } from '@shared/types/update'
 
 const terminalApi = {
   create: (options: IShellOptions): Promise<number> => {
@@ -117,6 +118,23 @@ const contextMenuApi = {
   }
 }
 
+const updateApi = {
+  checkForUpdates: (): Promise<IUpdateState> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.UPDATE_CHECK_FOR_UPDATES)
+  },
+  getState: (): Promise<IUpdateState> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.UPDATE_GET_STATE)
+  },
+  installDownloadedUpdate: (): Promise<IUpdateState> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.UPDATE_INSTALL_DOWNLOADED)
+  },
+  onStateChanged: (callback: (state: IUpdateState) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, state: IUpdateState) => callback(state)
+    ipcRenderer.on(IPC_CHANNELS.UPDATE_STATE_CHANGED, listener)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.UPDATE_STATE_CHANGED, listener)
+  }
+}
+
 contextBridge.exposeInMainWorld('terminalApi', terminalApi)
 contextBridge.exposeInMainWorld('storeApi', storeApi)
 contextBridge.exposeInMainWorld('connectionsApi', connectionsApi)
@@ -124,6 +142,7 @@ contextBridge.exposeInMainWorld('sftpApi', sftpApi)
 contextBridge.exposeInMainWorld('localFileTreeApi', localFileTreeApi)
 contextBridge.exposeInMainWorld('clipboardApi', clipboardApi)
 contextBridge.exposeInMainWorld('contextMenuApi', contextMenuApi)
+contextBridge.exposeInMainWorld('updateApi', updateApi)
 
 export type TerminalApi = typeof terminalApi
 export type StoreApi = typeof storeApi
@@ -132,3 +151,4 @@ export type SftpApi = typeof sftpApi
 export type LocalFileTreeApi = typeof localFileTreeApi
 export type ClipboardApi = typeof clipboardApi
 export type ContextMenuApi = typeof contextMenuApi
+export type UpdateApi = typeof updateApi

@@ -1,7 +1,9 @@
 import { ChangeEvent, ReactNode, useState } from 'react'
 import { themeOptions } from '@shared/config/theme.config'
 import { DEFAULT_SETTINGS } from '@shared/types/store'
+import { type IUpdateState } from '@shared/types/update'
 import { useSettingsStore } from '../../stores/settings.store'
+import { useUpdateStore } from '../../stores/update.store'
 import '../../styles/settings.css'
 
 interface SettingsViewProps {
@@ -33,7 +35,8 @@ const FONT_FAMILY_OPTIONS = [
 
 const SETTINGS_CATEGORIES = [
   { id: 'general', label: 'General' },
-  { id: 'appearance', label: 'Appearance' }
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'updates', label: 'Updates' }
 ] as const
 
 type SettingsCategoryId = (typeof SETTINGS_CATEGORIES)[number]['id']
@@ -47,9 +50,82 @@ type SettingsRow = {
   renderControl: () => ReactNode
 }
 
+function formatBytes(value: number): string {
+  if (value <= 0) {
+    return '0 B'
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB']
+  let size = value
+  let unitIndex = 0
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024
+    unitIndex += 1
+  }
+
+  return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
+}
+
+function formatCheckedAt(value?: number): string {
+  if (!value) {
+    return 'Never'
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).format(new Date(value))
+}
+
+function getUpdateStatusLabel(state: IUpdateState): string {
+  switch (state.status) {
+    case 'checking':
+      return 'Checking for updates'
+    case 'available':
+      return state.availableVersion ? `Update ${state.availableVersion} available` : 'Update available'
+    case 'not-available':
+      return 'Up to date'
+    case 'downloading':
+      return 'Downloading update'
+    case 'downloaded':
+      return state.availableVersion ? `Update ${state.availableVersion} ready` : 'Update ready'
+    case 'error':
+      return 'Update check failed'
+    case 'unavailable':
+      return 'Updates unavailable'
+    default:
+      return 'Ready'
+  }
+}
+
+function getUpdateIcon(state: IUpdateState): string {
+  switch (state.status) {
+    case 'checking':
+    case 'downloading':
+      return 'codicon-sync'
+    case 'available':
+      return 'codicon-cloud-download'
+    case 'downloaded':
+      return 'codicon-arrow-up'
+    case 'error':
+      return 'codicon-error'
+    case 'not-available':
+      return 'codicon-check'
+    case 'unavailable':
+      return 'codicon-circle-slash'
+    default:
+      return 'codicon-info'
+  }
+}
+
 export function SettingsView({ visible }: SettingsViewProps) {
   const settings = useSettingsStore((state) => state.settings)
   const updateSettings = useSettingsStore((state) => state.updateSettings)
+  const updateState = useUpdateStore((state) => state.state)
+  const checkForUpdates = useUpdateStore((state) => state.checkForUpdates)
+  const installDownloadedUpdate = useUpdateStore((state) => state.installDownloadedUpdate)
   const [activeCategory, setActiveCategory] = useState<SettingsCategoryId>('general')
 
   const handleTextChange =
@@ -154,10 +230,102 @@ export function SettingsView({ visible }: SettingsViewProps) {
     }
   ]
 
+  const isUpdateBusy = updateState.status === 'checking' || updateState.status === 'downloading'
+  const updateProgress = updateState.progress
+  const checkButtonLabel = updateState.status === 'checking' ? 'Checking...' : 'Check for Updates'
+  const updatesRows: SettingsRow[] = [
+    {
+      id: 'currentVersion',
+      label: 'Current Version',
+      description: 'The version of zTerm currently running.',
+      searchTerms: ['updates', 'version', 'current version', 'app version'],
+      modified: false,
+      renderControl: () => (
+        <span className="settings-update-value">{updateState.currentVersion || 'Unknown'}</span>
+      )
+    },
+    {
+      id: 'updateStatus',
+      label: 'Update Status',
+      description: updateState.message,
+      searchTerms: ['updates', 'status', 'download', 'progress', 'error', 'available'],
+      modified: false,
+      renderControl: () => (
+        <div className="settings-update-summary">
+          <i className={`codicon ${getUpdateIcon(updateState)}`} />
+          <span>{getUpdateStatusLabel(updateState)}</span>
+          {updateProgress ? (
+            <span className="settings-update-summary__progress">
+              {Math.round(updateProgress.percent)}% · {formatBytes(updateProgress.transferred)}
+              {updateProgress.total > 0 ? ` / ${formatBytes(updateProgress.total)}` : ''}
+            </span>
+          ) : null}
+        </div>
+      )
+    },
+    {
+      id: 'lastChecked',
+      label: 'Last Checked',
+      description: 'The most recent time zTerm checked for application updates.',
+      searchTerms: ['updates', 'last checked', 'checked at', 'manual check', 'time'],
+      modified: false,
+      renderControl: () => (
+        <span className="settings-update-value">{formatCheckedAt(updateState.checkedAt)}</span>
+      )
+    },
+    {
+      id: 'checkForUpdates',
+      label: 'Check for Updates',
+      description: isUpdateBusy
+        ? 'An update operation is already in progress.'
+        : 'Check GitHub Releases for the latest stable zTerm update.',
+      searchTerms: ['updates', 'check for updates', 'manual check', 'github release'],
+      modified: false,
+      renderControl: () => (
+        <button
+          className="settings-view__button settings-view__button--icon"
+          disabled={isUpdateBusy}
+          onClick={() => void checkForUpdates()}
+          type="button"
+        >
+          <i className="codicon codicon-sync" />
+          <span>{checkButtonLabel}</span>
+        </button>
+      )
+    },
+    ...(updateState.status === 'downloaded'
+      ? [
+          {
+            id: 'installDownloadedUpdate',
+            label: 'Install Downloaded Update',
+            description: 'Restart zTerm to install the downloaded update.',
+            searchTerms: ['updates', 'restart', 'install', 'downloaded update'],
+            modified: false,
+            renderControl: () => (
+              <button
+                className="settings-view__button settings-view__button--icon"
+                onClick={() => void installDownloadedUpdate()}
+                type="button"
+              >
+                <i className="codicon codicon-debug-restart" />
+                <span>Restart and Install</span>
+              </button>
+            )
+          }
+        ]
+      : [])
+  ]
+
+  const rowsByCategory: Record<SettingsCategoryId, SettingsRow[]> = {
+    general: generalRows,
+    appearance: appearanceRows,
+    updates: updatesRows
+  }
+
   const allGroups = SETTINGS_CATEGORIES.map((category) => ({
     id: category.id,
     title: category.label,
-    rows: category.id === 'appearance' ? appearanceRows : generalRows
+    rows: rowsByCategory[category.id]
   }))
 
   const activeGroup = allGroups.find((group) => group.id === activeCategory) ?? allGroups[0]

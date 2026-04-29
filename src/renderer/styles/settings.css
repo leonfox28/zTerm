@@ -409,6 +409,10 @@
 }
 
 .settings-view__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   height: 32px;
   padding: 0 12px;
   border: 1px solid var(--border-color);
@@ -420,4 +424,37 @@
 
 .settings-view__button:hover {
   background: var(--bg-hover);
+}
+
+.settings-view__button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.settings-view__button:disabled:hover {
+  background: var(--bg-tab-inactive);
+}
+
+.settings-view__button .codicon {
+  font-size: 14px;
+}
+
+.settings-update-value {
+  color: color-mix(in srgb, var(--fg-editor) 90%, transparent);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.settings-update-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  color: color-mix(in srgb, var(--fg-editor) 90%, transparent);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.settings-update-summary__progress {
+  color: var(--fg-sidebar-title);
 }

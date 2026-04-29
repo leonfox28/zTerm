@@ -7,6 +7,7 @@ import { SshService } from './services/ssh.service'
 import { SftpService } from './services/sftp.service'
 import { LocalFileTreeService } from './services/local-file-tree.service'
 import { TerminalManagerService } from './services/terminal-manager.service'
+import { UpdateService } from './services/update.service'
 import { registerTerminalIpc } from './ipc/terminal.ipc'
 import { registerStoreIpc } from './ipc/store.ipc'
 import { registerClipboardIpc } from './ipc/clipboard.ipc'
@@ -14,6 +15,7 @@ import { registerConnectionIpc } from './ipc/connection.ipc'
 import { registerSftpIpc } from './ipc/sftp.ipc'
 import { registerLocalFileTreeIpc } from './ipc/local-file-tree.ipc'
 import { registerContextMenuIpc } from './ipc/context-menu.ipc'
+import { registerUpdateIpc } from './ipc/update.ipc'
 
 let mainWindow: BrowserWindow | null = null
 const ptyService = new PtyService()
@@ -23,6 +25,7 @@ const sshService = new SshService(connectionService)
 const sftpService = new SftpService(connectionService)
 const localFileTreeService = new LocalFileTreeService()
 const terminalManagerService = new TerminalManagerService(ptyService, sshService)
+const updateService = new UpdateService(() => mainWindow)
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -43,6 +46,10 @@ function createWindow() {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  mainWindow.webContents.once('did-finish-load', () => {
+    updateService.startLaunchCheck()
+  })
 }
 
 app.whenReady().then(() => {
@@ -53,6 +60,7 @@ app.whenReady().then(() => {
   registerSftpIpc(sftpService)
   registerLocalFileTreeIpc(localFileTreeService)
   registerContextMenuIpc(() => mainWindow)
+  registerUpdateIpc(updateService, () => mainWindow)
   createWindow()
 
   app.on('activate', () => {

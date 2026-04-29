@@ -22,5 +22,9 @@ export const IPC_CHANNELS = {
   LOCAL_FILE_TREE_LIST_DIRECTORY: 'localFileTree:listDirectory',
   CONTEXT_MENU_SHOW: 'contextMenu:show',
   CONTEXT_MENU_ITEM_SELECTED: 'contextMenu:itemSelected',
-  CONTEXT_MENU_CLOSED: 'contextMenu:closed'
+  CONTEXT_MENU_CLOSED: 'contextMenu:closed',
+  UPDATE_CHECK_FOR_UPDATES: 'update:checkForUpdates',
+  UPDATE_GET_STATE: 'update:getState',
+  UPDATE_INSTALL_DOWNLOADED: 'update:installDownloaded',
+  UPDATE_STATE_CHANGED: 'update:stateChanged'
 } as const
