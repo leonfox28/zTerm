@@ -10,21 +10,8 @@ permissions:
 
 jobs:
   release:
-    name: Build ${{ matrix.platform }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: macOS
-            os: macos-latest
-            builder_args: --mac
-          - platform: Windows
-            os: windows-latest
-            builder_args: --win
-          - platform: Linux
-            os: ubuntu-latest
-            builder_args: --linux
+    name: Build macOS
+    runs-on: macos-latest
 
     steps:
       - name: Checkout
@@ -33,7 +20,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -59,11 +46,7 @@ jobs:
         run: npm run build
 
       - name: Package and publish
-        run: npx electron-builder ${{ matrix.builder_args }} --publish always
+        run: npx electron-builder --mac --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
