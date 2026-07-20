@@ -1,0 +1,16 @@
+---
+description: VS Code-like UI rules for zTerm renderer components
+globs: src/renderer/**/*.{ts,tsx,css}
+alwaysApply: false
+---
+
+# UI Rules
+
+- Match VS Code workbench behavior/visuals via React + Zustand + CSS variables.
+- Primary UI reference: `/Users/huyuanzhe/prj-code/vscode`
+- Icons: `@vscode/codicons` when suitable.
+- Keep Activity Bar, connections sidebar, terminal main area, Explorer auxiliary sidebar, Status Bar, Settings.
+- SSH create/edit is a terminal-page modal, not a top-level page.
+- Connection tree icons = connection type only (not runtime state).
+- SSH failures surface in terminal output; do not mutate sidebar connection state.
+- Explorer read/transfer failures go to Status Bar; keep the file tree visible.

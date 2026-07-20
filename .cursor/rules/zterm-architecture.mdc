@@ -1,0 +1,20 @@
+---
+description: Electron process boundaries and IPC/store layout for zTerm
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Architecture
+
+- Main owns PTY, SSH, SFTP, credentials, native menus, and persistence.
+- Renderer state lives in Zustand stores under `src/renderer/stores/`.
+- Preload bridges only: `src/preload/index.ts`. Shared IPC/types: `src/shared/`.
+- Do not put secrets in renderer state; credentials stay in main via `safeStorage`.
+- Keep terminal/session concerns separate from workbench layout concerns.
+
+## Key entry points
+
+- Main: `src/main/main.ts`, `src/main/services/*.service.ts`, `src/main/ipc/*.ipc.ts`
+- Terminal UI: `src/renderer/components/terminal/`
+- Workbench: `src/renderer/components/workbench/`
+- Stores: `workbench`, `terminal`, `settings`, `connections`, `explorer`

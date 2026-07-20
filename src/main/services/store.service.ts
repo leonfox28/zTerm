@@ -1,3 +1,4 @@
+import { app } from 'electron'
 import ElectronStoreModule from 'electron-store'
 import { IStoreSchema, DEFAULT_SETTINGS } from '@shared/types/store'
 
@@ -6,6 +7,7 @@ const Store = (
 ).default ?? ElectronStoreModule
 
 const store = new Store<IStoreSchema>({
+  cwd: app.getPath('userData'),
   defaults: {
     settings: DEFAULT_SETTINGS,
     connections: [],

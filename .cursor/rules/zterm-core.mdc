@@ -1,0 +1,15 @@
+---
+description: zTerm core project conventions for Cursor agents
+alwaysApply: true
+---
+
+# zTerm Core
+
+- Cross-platform Electron terminal + SSH client with a VS Code-like workbench.
+- Stack: Electron 43, React 19, TypeScript, Zustand, xterm.js, node-pty, ssh2, electron-vite.
+- Package manager: npm. Dev: `npm run dev`. Verify with `npm run lint` and `npm run typecheck`.
+- Reply in Chinese unless the user asks otherwise.
+- Prefer the smallest change that fully solves the request; no speculative features or drive-by refactors.
+- `src/` wins when docs and code disagree. Product overview: `README.md`. Agent constraints: `AGENTS.md`.
+- Non-trivial work: use `feature/`, `fix/`, or `chore/` branches when the worktree is clean.
+- Commit format when asked: `<type>: <Chinese description>` (`feat` | `fix` | `docs` | `refactor` | `chore`).

@@ -9,16 +9,16 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "noUncheckedSideEffectImports": false,
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "./out/tsc",
     "noEmit": true,
-    "baseUrl": ".",
     "paths": {
-      "@shared/*": ["src/shared/*"],
-      "@main/*": ["src/main/*"],
-      "@renderer/*": ["src/renderer/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@main/*": ["./src/main/*"],
+      "@renderer/*": ["./src/renderer/*"]
     },
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
