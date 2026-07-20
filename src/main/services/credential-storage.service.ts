@@ -110,6 +110,14 @@ export class CredentialStorageService {
       for (const connection of connections) {
         const legacy = connection as ConnectionWithLegacyCredentials
         const next = { ...connection } as ConnectionWithLegacyCredentials
+        const hasLegacyFields = Boolean(legacy.encryptedPassword || legacy.encryptedPassphrase)
+
+        // Already on the keyring-backed format: leave flags and secrets alone.
+        if (!hasLegacyFields) {
+          migrated.push(next)
+          continue
+        }
+
         next.hasSavedPassword = false
         next.hasSavedPassphrase = false
 
@@ -238,7 +246,10 @@ export class CredentialStorageService {
       }
 
       throw new Error('Legacy credential encryption key is unavailable')
-    })()
+    })().catch((error) => {
+      this.legacyDekPromise = null
+      throw error
+    })
 
     return this.legacyDekPromise
   }
