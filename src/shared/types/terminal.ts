@@ -2,6 +2,8 @@ export type TerminalSessionKind = 'local' | 'ssh'
 
 export interface ISshTerminalOptions {
   connectionId: string
+  /** Reuse an existing SSH client from another shell in the same tab (split). */
+  shareWithPtyId?: number
 }
 
 export interface IShellOptions {

@@ -4,9 +4,9 @@
   height: 100%;
   grid-template-rows: var(--titlebar-height) 1fr var(--statusbar-height);
   grid-template-areas:
-    "titlebar    titlebar titlebar    titlebar"
-    "activitybar sidebar  main        auxiliarybar"
-    "statusbar   statusbar statusbar  statusbar";
+    "titlebar    titlebar titlebar"
+    "activitybar sidebar  main"
+    "statusbar   statusbar statusbar";
 }
 
 /* ===== Title Bar ===== */
@@ -123,7 +123,11 @@
 }
 
 .workbench-pane--auxiliary {
-  grid-area: auxiliarybar;
+  border-left: 1px solid var(--border-color);
+}
+
+.workbench-pane--embedded {
+  height: 100%;
   border-left: 1px solid var(--border-color);
 }
 
@@ -192,11 +196,11 @@
   padding: 0 0 4px;
 }
 
-.auxiliarybar__content {
+.tab-explorer__content {
   overflow-y: auto;
 }
 
-.auxiliarybar__path {
+.tab-explorer__path {
   padding: 6px 20px 4px;
   color: var(--fg-sidebar-title);
   font-size: 11px;
@@ -205,21 +209,21 @@
   text-overflow: ellipsis;
 }
 
-.auxiliarybar__toolbar {
+.tab-explorer__toolbar {
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 0 20px 8px;
 }
 
-.auxiliarybar__message {
+.tab-explorer__message {
   padding: 12px 20px;
   color: var(--fg-sidebar);
   font-size: 12px;
   line-height: 1.5;
 }
 
-.auxiliarybar__message--error {
+.tab-explorer__message--error {
   color: #f48771;
 }
 
@@ -322,11 +326,6 @@
 .sash--left {
   grid-area: sidebar;
   justify-self: end;
-}
-
-.sash--right {
-  grid-area: auxiliarybar;
-  justify-self: start;
 }
 
 .sash--vertical:hover {

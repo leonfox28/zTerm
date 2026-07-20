@@ -8,8 +8,8 @@ export const LAYOUT = {
     maxWidth: 500,
     autoHideThreshold: 120
   },
-  auxiliarySidebar: {
-    defaultWidth: 240,
+  tabExplorer: {
+    defaultWidth: 260,
     minWidth: 180,
     maxWidth: 520
   }

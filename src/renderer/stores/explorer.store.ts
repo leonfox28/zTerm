@@ -10,7 +10,10 @@ export interface ExplorerContext {
   key: string
   provider: ExplorerProviderKind
   cwd?: string
+  /** Saved SSH connection id — display / config only. */
   connectionId?: string
+  /** Runtime terminal pty id — required for SSH SFTP operations. */
+  ptyId?: number
 }
 
 interface ExplorerNode {
@@ -29,7 +32,10 @@ interface ExplorerTreeState {
   loadedPaths: string[]
   error: string | null
   followTerminalPath: boolean
-  requestVersion: number
+  /** Invalidates in-flight root/navigation loads (reset:true). */
+  navigationToken: number
+  /** Invalidates in-flight per-path expand loads without affecting other paths. */
+  pathTokens: Record<string, number>
 }
 
 interface ExplorerState {
@@ -54,7 +60,8 @@ function createEmptyTreeState(): ExplorerTreeState {
     loadedPaths: [],
     error: null,
     followTerminalPath: true,
-    requestVersion: 0
+    navigationToken: 0,
+    pathTokens: {}
   }
 }
 
@@ -109,15 +116,52 @@ function applyDirectoryResult(
   return nextTree
 }
 
-function setLoading(tree: ExplorerTreeState, path: string): ExplorerTreeState {
+function beginNavigationLoad(
+  tree: ExplorerTreeState,
+  path: string
+): { tree: ExplorerTreeState; navigationToken: number } {
   useWorkbenchStore.getState().setStatusMessage(null)
+  const navigationToken = tree.navigationToken + 1
 
   return {
-    ...tree,
-    loadingPaths: unique([...tree.loadingPaths, path]),
-    error: null,
-    requestVersion: tree.requestVersion + 1
+    navigationToken,
+    tree: {
+      ...tree,
+      loadingPaths: unique([...tree.loadingPaths, path]),
+      error: null,
+      navigationToken
+    }
   }
+}
+
+function beginPathLoad(
+  tree: ExplorerTreeState,
+  path: string
+): { tree: ExplorerTreeState; navigationToken: number; pathToken: number } {
+  useWorkbenchStore.getState().setStatusMessage(null)
+  const pathToken = (tree.pathTokens[path] ?? 0) + 1
+
+  return {
+    navigationToken: tree.navigationToken,
+    pathToken,
+    tree: {
+      ...tree,
+      loadingPaths: unique([...tree.loadingPaths, path]),
+      error: null,
+      pathTokens: {
+        ...tree.pathTokens,
+        [path]: pathToken
+      }
+    }
+  }
+}
+
+function isCurrentNavigation(tree: ExplorerTreeState, navigationToken: number): boolean {
+  return tree.navigationToken === navigationToken
+}
+
+function isCurrentPathLoad(tree: ExplorerTreeState, path: string, navigationToken: number, pathToken: number): boolean {
+  return tree.navigationToken === navigationToken && tree.pathTokens[path] === pathToken
 }
 
 function setError(tree: ExplorerTreeState, path: string, error: string): ExplorerTreeState {
@@ -146,13 +190,17 @@ function getParentPath(path: string): string | null {
   return parentPath
 }
 
+function requireSshPtyId(context: ExplorerContext): number {
+  if (context.ptyId == null) {
+    throw new Error('SSH terminal session is not ready')
+  }
+
+  return context.ptyId
+}
+
 async function getInitialDirectory(context: ExplorerContext): Promise<IFileTreeDirectoryResult> {
   if (context.provider === 'ssh') {
-    if (!context.connectionId) {
-      throw new Error('Missing SSH connection id')
-    }
-
-    return window.sftpApi.getInitialDirectory(context.connectionId)
+    return window.sftpApi.getInitialDirectory(requireSshPtyId(context))
   }
 
   return window.localFileTreeApi.getInitialDirectory(context.cwd)
@@ -160,11 +208,7 @@ async function getInitialDirectory(context: ExplorerContext): Promise<IFileTreeD
 
 async function listDirectory(context: ExplorerContext, path: string): Promise<IFileTreeDirectoryResult> {
   if (context.provider === 'ssh') {
-    if (!context.connectionId) {
-      throw new Error('Missing SSH connection id')
-    }
-
-    return window.sftpApi.listDirectory(context.connectionId, path)
+    return window.sftpApi.listDirectory(requireSshPtyId(context), path)
   }
 
   return window.localFileTreeApi.listDirectory(path)
@@ -174,21 +218,25 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
   trees: {},
 
   ensureRootLoaded: async (context) => {
+    if (context.provider === 'ssh' && context.ptyId == null) {
+      return
+    }
+
     const currentTree = get().trees[context.key] ?? createEmptyTreeState()
     if (currentTree.currentPath && currentTree.loadedPaths.includes(currentTree.currentPath)) {
       return
     }
 
     const loadingKey = currentTree.currentPath ?? ROOT_LOADING_KEY
-    let requestVersion = 0
+    let navigationToken = 0
 
     set((state) => {
-      const nextTree = setLoading(state.trees[context.key] ?? createEmptyTreeState(), loadingKey)
-      requestVersion = nextTree.requestVersion
+      const started = beginNavigationLoad(state.trees[context.key] ?? createEmptyTreeState(), loadingKey)
+      navigationToken = started.navigationToken
       return {
         trees: {
           ...state.trees,
-          [context.key]: nextTree
+          [context.key]: started.tree
         }
       }
     })
@@ -197,7 +245,7 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
       const result = await getInitialDirectory(context)
       set((state) => {
         const tree = state.trees[context.key] ?? createEmptyTreeState()
-        if (tree.requestVersion !== requestVersion) {
+        if (!isCurrentNavigation(tree, navigationToken)) {
           return state
         }
 
@@ -212,7 +260,7 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
       const message = error instanceof Error ? error.message : 'Failed to load files'
       set((state) => {
         const tree = state.trees[context.key] ?? createEmptyTreeState()
-        if (tree.requestVersion !== requestVersion) {
+        if (!isCurrentNavigation(tree, navigationToken)) {
           return state
         }
 
@@ -232,16 +280,20 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
   },
 
   loadPath: async (context, path, options) => {
+    if (context.provider === 'ssh' && context.ptyId == null) {
+      throw new Error('SSH terminal session is not ready')
+    }
+
     const source = options?.source ?? 'manual'
-    let requestVersion = 0
+    let navigationToken = 0
 
     set((state) => {
-      const nextTree = setLoading(state.trees[context.key] ?? createEmptyTreeState(), path)
-      requestVersion = nextTree.requestVersion
+      const started = beginNavigationLoad(state.trees[context.key] ?? createEmptyTreeState(), path)
+      navigationToken = started.navigationToken
       return {
         trees: {
           ...state.trees,
-          [context.key]: nextTree
+          [context.key]: started.tree
         }
       }
     })
@@ -250,7 +302,7 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
       const result = await listDirectory(context, path)
       set((state) => {
         const tree = state.trees[context.key] ?? createEmptyTreeState()
-        if (tree.requestVersion !== requestVersion) {
+        if (!isCurrentNavigation(tree, navigationToken)) {
           return state
         }
 
@@ -266,7 +318,7 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
       const message = error instanceof Error ? error.message : `Failed to load ${path}`
       set((state) => {
         const tree = state.trees[context.key] ?? createEmptyTreeState()
-        if (tree.requestVersion !== requestVersion) {
+        if (!isCurrentNavigation(tree, navigationToken)) {
           return state
         }
 
@@ -324,15 +376,17 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
       return
     }
 
-    let requestVersion = 0
+    let navigationToken = 0
+    let pathToken = 0
 
     set((state) => {
-      const nextTree = setLoading(state.trees[context.key] ?? createEmptyTreeState(), entry.path)
-      requestVersion = nextTree.requestVersion
+      const started = beginPathLoad(state.trees[context.key] ?? createEmptyTreeState(), entry.path)
+      navigationToken = started.navigationToken
+      pathToken = started.pathToken
       return {
         trees: {
           ...state.trees,
-          [context.key]: nextTree
+          [context.key]: started.tree
         }
       }
     })
@@ -341,7 +395,7 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
       const result = await listDirectory(context, entry.path)
       set((state) => {
         const tree = state.trees[context.key] ?? createEmptyTreeState()
-        if (tree.requestVersion !== requestVersion) {
+        if (!isCurrentPathLoad(tree, entry.path, navigationToken, pathToken)) {
           return state
         }
 
@@ -369,7 +423,7 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
       const message = error instanceof Error ? error.message : `Failed to load ${entry.path}`
       set((state) => {
         const tree = state.trees[context.key] ?? createEmptyTreeState()
-        if (tree.requestVersion !== requestVersion) {
+        if (!isCurrentPathLoad(tree, entry.path, navigationToken, pathToken)) {
           return state
         }
 
@@ -395,7 +449,7 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
   },
 
   uploadToCurrentPath: async (context) => {
-    if (context.provider !== 'ssh' || !context.connectionId) {
+    if (context.provider !== 'ssh' || context.ptyId == null) {
       return false
     }
 
@@ -405,7 +459,7 @@ export const useExplorerStore = create<ExplorerState>((set, get) => ({
     }
 
     try {
-      const result = await window.sftpApi.uploadFile(context.connectionId, tree.currentPath)
+      const result = await window.sftpApi.uploadFile(context.ptyId, tree.currentPath)
       if (result.canceled) {
         return false
       }

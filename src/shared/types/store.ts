@@ -73,6 +73,13 @@ export interface IStoreSchema {
   connectionFolders: IConnectionFolder[]
 }
 
+/** Store keys exposed to the renderer. Connections stay main-process only. */
+export type PublicStoreKey = 'settings' | 'connectionFolders'
+
+export type IPublicStoreSchema = Pick<IStoreSchema, PublicStoreKey>
+
+export const PUBLIC_STORE_KEYS: readonly PublicStoreKey[] = ['settings', 'connectionFolders']
+
 export const DEFAULT_SETTINGS: ISettings = {
   fontSize: 14,
   fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, monospace",

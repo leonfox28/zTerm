@@ -3,7 +3,11 @@ import { type IFileTreeEntry } from '@shared/types/file-tree'
 import { FileTree } from '../sidebar/FileTree'
 import { useConnectionsStore } from '../../stores/connections.store'
 import { type ExplorerContext, useExplorerStore } from '../../stores/explorer.store'
-import { useTerminalStore, type TerminalSession } from '../../stores/terminal.store'
+import {
+  resolveSshPtyIdForTab,
+  useTerminalStore,
+  type TerminalSession
+} from '../../stores/terminal.store'
 import { useWorkbenchStore } from '../../stores/workbench.store'
 import { WorkbenchPane } from './WorkbenchPane'
 
@@ -11,16 +15,23 @@ function escapeShellPath(path: string): string {
   return `'${path.replaceAll("'", `'\\''`)}'`
 }
 
-function createExplorerContext(session: TerminalSession | null): ExplorerContext | null {
+function createExplorerContext(
+  session: TerminalSession | null,
+  tabId: number
+): ExplorerContext | null {
   if (!session) {
     return null
   }
 
   if (session.kind === 'ssh' && session.connectionId) {
+    const ptyId =
+      session.ptyId ?? resolveSshPtyIdForTab(useTerminalStore.getState(), tabId, session.id)
+
     return {
-      key: `ssh:${session.connectionId}`,
+      key: `ssh:tab:${tabId}`,
       provider: 'ssh',
       connectionId: session.connectionId,
+      ptyId,
       cwd: session.cwd
     }
   }
@@ -36,18 +47,19 @@ function createExplorerContext(session: TerminalSession | null): ExplorerContext
   return null
 }
 
-export function AuxiliarySidebar() {
+interface TabExplorerProps {
+  tabId: number
+  visible: boolean
+}
+
+export function TabExplorer({ tabId, visible }: TabExplorerProps) {
   const activeSession = useTerminalStore((state) => {
-    if (state.activeTabId === null) {
+    const tab = state.tabs.find((item) => item.id === tabId)
+    if (!tab) {
       return null
     }
 
-    const activeTab = state.tabs.find((tab) => tab.id === state.activeTabId)
-    if (!activeTab) {
-      return null
-    }
-
-    const activePane = state.panes[activeTab.activePaneId]
+    const activePane = state.panes[tab.activePaneId]
     if (!activePane || activePane.type !== 'leaf') {
       return null
     }
@@ -55,7 +67,6 @@ export function AuxiliarySidebar() {
     return state.sessions[activePane.sessionId] ?? null
   })
   const connections = useConnectionsStore((state) => state.connections)
-  const trees = useExplorerStore((state) => state.trees)
   const ensureRootLoaded = useExplorerStore((state) => state.ensureRootLoaded)
   const loadPath = useExplorerStore((state) => state.loadPath)
   const refreshCurrentPath = useExplorerStore((state) => state.refreshCurrentPath)
@@ -63,41 +74,67 @@ export function AuxiliarySidebar() {
   const setFollowTerminalPath = useExplorerStore((state) => state.setFollowTerminalPath)
   const setTreeError = useExplorerStore((state) => state.setTreeError)
 
-  const explorerContext = useMemo(() => createExplorerContext(activeSession), [activeSession])
+  const explorerContext = useMemo(() => createExplorerContext(activeSession, tabId), [activeSession, tabId])
+  const explorerKey = explorerContext?.key ?? null
+  const tree = useExplorerStore((state) => (explorerKey ? state.trees[explorerKey] : undefined))
   const activeConnectionId = explorerContext?.provider === 'ssh' ? explorerContext.connectionId ?? null : null
   const activeConnection = connections.find((connection) => connection.id === activeConnectionId)
-  const tree = explorerContext ? trees[explorerContext.key] : undefined
-  const explorerKey = explorerContext?.key ?? null
   const setStatusMessage = useWorkbenchStore((state) => state.setStatusMessage)
 
   useEffect(() => {
+    if (!visible) {
+      return
+    }
+
     setStatusMessage(tree?.error ?? null)
-  }, [setStatusMessage, tree?.error, explorerKey])
+  }, [setStatusMessage, tree?.error, explorerKey, visible])
+
+  const sshSessionReady = explorerContext?.provider !== 'ssh' || explorerContext.ptyId != null
 
   useEffect(() => {
-    if (!explorerContext) {
+    if (!visible || !explorerContext || !sshSessionReady) {
       return
     }
 
     void ensureRootLoaded(explorerContext).catch((error: unknown) => {
       setTreeError(explorerContext.key, error instanceof Error ? error.message : 'Failed to load files')
     })
-  }, [explorerContext, ensureRootLoaded, setTreeError])
+  }, [explorerContext, ensureRootLoaded, setTreeError, sshSessionReady, visible])
 
   useEffect(() => {
-    if (!explorerContext || !activeSession?.cwd || !tree?.followTerminalPath || tree.currentPath === activeSession.cwd) {
+    if (
+      !visible ||
+      !explorerContext ||
+      !sshSessionReady ||
+      !activeSession?.cwd ||
+      !tree?.followTerminalPath ||
+      tree.currentPath === activeSession.cwd
+    ) {
       return
     }
 
     void loadPath(explorerContext, activeSession.cwd, { source: 'follow-terminal' }).catch((error: unknown) => {
       setTreeError(explorerContext.key, error instanceof Error ? error.message : 'Terminal path unavailable')
     })
-  }, [explorerContext, activeSession?.cwd, loadPath, setTreeError, tree?.currentPath, tree?.followTerminalPath])
+  }, [
+    explorerContext,
+    activeSession?.cwd,
+    loadPath,
+    setTreeError,
+    sshSessionReady,
+    tree?.currentPath,
+    tree?.followTerminalPath,
+    visible
+  ])
+
   const title = explorerContext?.provider === 'ssh' ? activeConnection?.name ?? 'Remote Files' : 'Explorer'
-  const isRootLoading = Boolean(explorerContext && !tree?.currentPath && tree?.loadingPaths.length)
+  const isRootLoading = Boolean(
+    explorerContext && sshSessionReady && !tree?.currentPath && (tree?.loadingPaths.length || !tree)
+  )
+  const activePtyId = explorerContext?.ptyId
 
   const handleDownloadEntry = async (entry: IFileTreeEntry) => {
-    if (!activeConnectionId) {
+    if (activePtyId == null) {
       return
     }
 
@@ -105,7 +142,7 @@ export function AuxiliarySidebar() {
       if (explorerKey) {
         setTreeError(explorerKey, null)
       }
-      await window.sftpApi.downloadEntry(activeConnectionId, entry.path, entry.kind)
+      await window.sftpApi.downloadEntry(activePtyId, entry.path, entry.kind)
     } catch (error) {
       if (explorerKey) {
         setTreeError(explorerKey, error instanceof Error ? error.message : `Failed to download ${entry.name}`)
@@ -115,7 +152,7 @@ export function AuxiliarySidebar() {
   }
 
   const handleShowEntryDetails = async (entry: IFileTreeEntry) => {
-    if (!activeConnectionId) {
+    if (activePtyId == null) {
       return
     }
 
@@ -123,7 +160,7 @@ export function AuxiliarySidebar() {
       if (explorerKey) {
         setTreeError(explorerKey, null)
       }
-      const details = await window.sftpApi.getEntryDetails(activeConnectionId, entry.path)
+      const details = await window.sftpApi.getEntryDetails(activePtyId, entry.path)
       window.alert(
         [
           `Path: ${details.path}`,
@@ -141,17 +178,17 @@ export function AuxiliarySidebar() {
   }
 
   return (
-    <WorkbenchPane variant="auxiliary" title={title} contentClassName="auxiliarybar__content">
+    <WorkbenchPane variant="embedded" title={title} contentClassName="tab-explorer__content">
       {!explorerContext ? (
-        <div className="auxiliarybar__message">File browsing is available from terminal sessions.</div>
-      ) : isRootLoading ? (
-        <div className="auxiliarybar__message">Loading files…</div>
+        <div className="tab-explorer__message">File browsing is available from terminal sessions.</div>
+      ) : !sshSessionReady || isRootLoading ? (
+        <div className="tab-explorer__message">Loading files…</div>
       ) : tree?.currentPath ? (
         <>
-          <div className="auxiliarybar__path" title={tree.currentPath}>
+          <div className="tab-explorer__path" title={tree.currentPath}>
             {tree.currentPath}
           </div>
-          <div className="auxiliarybar__toolbar">
+          <div className="tab-explorer__toolbar">
             <button
               className="workbench-pane__icon-button"
               onClick={() => {
@@ -230,7 +267,7 @@ export function AuxiliarySidebar() {
           />
         </>
       ) : (
-        <div className="auxiliarybar__message">No files found.</div>
+        <div className="tab-explorer__message">No files found.</div>
       )}
     </WorkbenchPane>
   )

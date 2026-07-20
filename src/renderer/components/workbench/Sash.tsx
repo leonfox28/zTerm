@@ -1,12 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import { useWorkbenchStore } from '../../stores/workbench.store'
 
-interface SashProps {
-  side?: 'left' | 'right'
-}
-
-export function Sash({ side = 'left' }: SashProps) {
-  const { sidebarWidth, auxiliarySidebarWidth, setSidebarWidth, setAuxiliarySidebarWidth } = useWorkbenchStore()
+export function Sash() {
+  const setSidebarWidth = useWorkbenchStore((state) => state.setSidebarWidth)
   const draggingRef = useRef(false)
   const [active, setActive] = useState(false)
 
@@ -17,20 +13,14 @@ export function Sash({ side = 'left' }: SashProps) {
       setActive(true)
 
       const startX = e.clientX
-      const startWidth = side === 'left' ? sidebarWidth : auxiliarySidebarWidth
+      const startWidth = useWorkbenchStore.getState().sidebarWidth
 
       document.body.style.cursor = 'col-resize'
       document.body.style.userSelect = 'none'
 
       const handleMouseMove = (ev: MouseEvent) => {
         if (!draggingRef.current) return
-        const delta = ev.clientX - startX
-        if (side === 'left') {
-          setSidebarWidth(startWidth + delta)
-          return
-        }
-
-        setAuxiliarySidebarWidth(startWidth - delta)
+        setSidebarWidth(startWidth + (ev.clientX - startX))
       }
 
       const handleMouseUp = () => {
@@ -45,12 +35,12 @@ export function Sash({ side = 'left' }: SashProps) {
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
     },
-    [auxiliarySidebarWidth, setAuxiliarySidebarWidth, setSidebarWidth, side, sidebarWidth]
+    [setSidebarWidth]
   )
 
   return (
     <div
-      className={`sash sash--vertical sash--${side} ${active ? 'sash--active' : ''}`}
+      className={`sash sash--vertical sash--left ${active ? 'sash--active' : ''}`}
       onMouseDown={handleMouseDown}
     />
   )

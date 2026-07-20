@@ -8,9 +8,15 @@ import {
   type ISftpUploadResult,
   type RemoteFileKind
 } from '@shared/types/sftp'
-import { type IConnectionSaveResult, type IConnectionSummary, type IConnectionUpsertInput, type IStoreSchema } from '@shared/types/store'
+import {
+  type IConnectionSaveResult,
+  type IConnectionSummary,
+  type IConnectionUpsertInput,
+  type IPublicStoreSchema,
+  type PublicStoreKey
+} from '@shared/types/store'
 import { type ContextMenuClosed, type ContextMenuRequest, type ContextMenuSelection } from '@shared/types/context-menu'
-import { IShellOptions } from '@shared/types/terminal'
+import { type IShellOptions } from '@shared/types/terminal'
 import { type IUpdateState } from '@shared/types/update'
 
 const terminalApi = {
@@ -42,13 +48,13 @@ const terminalApi = {
 }
 
 const storeApi = {
-  get: <K extends keyof IStoreSchema>(key: K): Promise<IStoreSchema[K]> => {
+  get: <K extends PublicStoreKey>(key: K): Promise<IPublicStoreSchema[K]> => {
     return ipcRenderer.invoke(IPC_CHANNELS.STORE_GET, key)
   },
-  set: <K extends keyof IStoreSchema>(key: K, value: IStoreSchema[K]): void => {
+  set: <K extends PublicStoreKey>(key: K, value: IPublicStoreSchema[K]): void => {
     ipcRenderer.send(IPC_CHANNELS.STORE_SET, { key, value })
   },
-  getAll: (): Promise<IStoreSchema> => {
+  getAll: (): Promise<IPublicStoreSchema> => {
     return ipcRenderer.invoke(IPC_CHANNELS.STORE_GET_ALL)
   }
 }
@@ -66,20 +72,20 @@ const connectionsApi = {
 }
 
 const sftpApi = {
-  getInitialDirectory: (connectionId: string): Promise<IRemoteDirectoryResult> => {
-    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_GET_INITIAL_DIRECTORY, connectionId)
+  getInitialDirectory: (ptyId: number): Promise<IRemoteDirectoryResult> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_GET_INITIAL_DIRECTORY, ptyId)
   },
-  listDirectory: (connectionId: string, path: string): Promise<IRemoteDirectoryResult> => {
-    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_LIST_DIRECTORY, { connectionId, path })
+  listDirectory: (ptyId: number, path: string): Promise<IRemoteDirectoryResult> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_LIST_DIRECTORY, { ptyId, path })
   },
-  uploadFile: (connectionId: string, destinationPath: string): Promise<ISftpUploadResult> => {
-    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_UPLOAD_FILE, { connectionId, destinationPath })
+  uploadFile: (ptyId: number, destinationPath: string): Promise<ISftpUploadResult> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_UPLOAD_FILE, { ptyId, destinationPath })
   },
-  downloadEntry: (connectionId: string, entryPath: string, kind: RemoteFileKind): Promise<ISftpDownloadResult> => {
-    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_DOWNLOAD_ENTRY, { connectionId, entryPath, kind })
+  downloadEntry: (ptyId: number, entryPath: string, kind: RemoteFileKind): Promise<ISftpDownloadResult> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_DOWNLOAD_ENTRY, { ptyId, entryPath, kind })
   },
-  getEntryDetails: (connectionId: string, entryPath: string): Promise<IRemoteEntryDetails> => {
-    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_GET_ENTRY_DETAILS, { connectionId, entryPath })
+  getEntryDetails: (ptyId: number, entryPath: string): Promise<IRemoteEntryDetails> => {
+    return ipcRenderer.invoke(IPC_CHANNELS.SFTP_GET_ENTRY_DETAILS, { ptyId, entryPath })
   }
 }
 

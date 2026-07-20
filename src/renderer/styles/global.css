@@ -1,12 +1,19 @@
 @import '@vscode/codicons/dist/codicon.css';
 
+/* Bust Electron/Vite cache after codicons font upgrades. */
+@font-face {
+  font-family: 'codicon';
+  font-display: block;
+  src: url('@vscode/codicons/dist/codicon.ttf?v=0.0.46-22') format('truetype');
+}
+
 :root {
   /* Layout dimensions — structural constants, not theme-dependent */
   --titlebar-height: 38px;
   --activitybar-width: 48px;
   --statusbar-height: 22px;
   --sidebar-width: 240px;
-  --auxiliarybar-width: 240px;
+  --tab-explorer-width: 260px;
 }
 
 * {

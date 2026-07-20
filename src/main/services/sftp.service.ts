@@ -1,14 +1,13 @@
 import { promises as fs } from 'fs'
 import { basename, join } from 'path'
-import { Client, type FileEntryWithStats, type SFTPWrapper } from 'ssh2'
+import { type FileEntryWithStats, type SFTPWrapper } from 'ssh2'
 import {
   type IRemoteDirectoryResult,
   type IRemoteEntryDetails,
   type IRemoteFileEntry,
   type RemoteFileKind
 } from '@shared/types/sftp'
-import { ConnectionService } from './connection.service'
-import { createSshConnectConfig } from './ssh.service'
+import { SshService } from './ssh.service'
 
 function joinRemotePath(parent: string, name: string): string {
   if (parent === '/') {
@@ -59,108 +58,46 @@ function sortEntries(entries: IRemoteFileEntry[]): IRemoteFileEntry[] {
 }
 
 export class SftpService {
-  constructor(private readonly connectionService: ConnectionService) {}
+  constructor(private readonly sshService: SshService) {}
 
-  async getInitialDirectory(connectionId: string): Promise<IRemoteDirectoryResult> {
-    return this.withSftp(connectionId, async (sftp) => {
-      const path = await this.resolveInitialPath(sftp)
-      return this.readDirectory(sftp, path)
-    })
+  async getInitialDirectory(ptyId: number): Promise<IRemoteDirectoryResult> {
+    const sftp = this.sshService.getSftp(ptyId)
+    const path = await this.resolveInitialPath(sftp)
+    return this.readDirectory(sftp, path)
   }
 
-  async listDirectory(connectionId: string, path: string): Promise<IRemoteDirectoryResult> {
-    return this.withSftp(connectionId, async (sftp) => this.readDirectory(sftp, path))
+  async listDirectory(ptyId: number, path: string): Promise<IRemoteDirectoryResult> {
+    return this.readDirectory(this.sshService.getSftp(ptyId), path)
   }
 
-  async uploadFile(connectionId: string, localFilePath: string, destinationPath: string): Promise<void> {
-    return this.withSftp(connectionId, async (sftp) => {
-      const remoteFilePath = joinRemotePath(destinationPath, basename(localFilePath))
-      if (await this.pathExists(sftp, remoteFilePath)) {
-        throw new Error(`Remote path already exists: ${remoteFilePath}`)
-      }
+  async uploadFile(ptyId: number, localFilePath: string, destinationPath: string): Promise<void> {
+    const sftp = this.sshService.getSftp(ptyId)
+    const remoteFilePath = joinRemotePath(destinationPath, basename(localFilePath))
+    if (await this.pathExists(sftp, remoteFilePath)) {
+      throw new Error(`Remote path already exists: ${remoteFilePath}`)
+    }
 
-      await this.fastPut(sftp, localFilePath, remoteFilePath)
-    })
+    await this.fastPut(sftp, localFilePath, remoteFilePath)
   }
 
   async downloadEntry(
-    connectionId: string,
+    ptyId: number,
     entryPath: string,
     kind: RemoteFileKind,
     destinationPath: string
   ): Promise<void> {
-    return this.withSftp(connectionId, async (sftp) => {
-      if (kind === 'directory') {
-        const localDirectoryPath = join(destinationPath, basename(entryPath))
-        await this.downloadDirectory(sftp, entryPath, localDirectoryPath)
-        return
-      }
+    const sftp = this.sshService.getSftp(ptyId)
+    if (kind === 'directory') {
+      const localDirectoryPath = join(destinationPath, basename(entryPath))
+      await this.downloadDirectory(sftp, entryPath, localDirectoryPath)
+      return
+    }
 
-      await this.fastGet(sftp, entryPath, destinationPath)
-    })
+    await this.fastGet(sftp, entryPath, destinationPath)
   }
 
-  async getEntryDetails(connectionId: string, path: string): Promise<IRemoteEntryDetails> {
-    return this.withSftp(connectionId, async (sftp) => this.readEntryDetails(sftp, path))
-  }
-
-  private async withSftp<T>(connectionId: string, run: (sftp: SFTPWrapper) => Promise<T>): Promise<T> {
-    const client = new Client()
-
-    return new Promise<T>((resolve, reject) => {
-      let settled = false
-
-      const finishReject = (error: unknown) => {
-        if (settled) {
-          return
-        }
-
-        settled = true
-        client.end()
-        reject(error instanceof Error ? error : new Error('SFTP operation failed'))
-      }
-
-      const finishResolve = (value: T) => {
-        if (settled) {
-          return
-        }
-
-        settled = true
-        client.end()
-        resolve(value)
-      }
-
-      let config
-      try {
-        config = createSshConnectConfig(this.connectionService, connectionId).config
-      } catch (error) {
-        finishReject(error)
-        return
-      }
-
-      client.on('ready', () => {
-        client.sftp((error, sftp) => {
-          if (error || !sftp) {
-            finishReject(new Error(`Failed to start SFTP session: ${error?.message ?? 'Unknown error'}`))
-            return
-          }
-
-          void run(sftp).then(finishResolve).catch(finishReject)
-        })
-      })
-
-      client.on('error', (error) => {
-        finishReject(new Error(`SFTP connection failed: ${error.message}`))
-      })
-
-      client.on('close', () => {
-        if (!settled) {
-          finishReject(new Error('SFTP connection closed unexpectedly'))
-        }
-      })
-
-      client.connect(config)
-    })
+  async getEntryDetails(ptyId: number, path: string): Promise<IRemoteEntryDetails> {
+    return this.readEntryDetails(this.sshService.getSftp(ptyId), path)
   }
 
   private readDirectory(sftp: SFTPWrapper, path: string): Promise<IRemoteDirectoryResult> {

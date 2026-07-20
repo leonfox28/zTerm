@@ -3,22 +3,22 @@ import { ActivityBar } from './ActivityBar'
 import { Sidebar } from './Sidebar'
 import { Sash } from './Sash'
 import { MainArea } from './MainArea'
-import { AuxiliarySidebar } from './AuxiliarySidebar'
 import { StatusBar } from './StatusBar'
 import { SshConnectionDialog } from '../connections/SshConnectionView'
 import { useWorkbenchStore } from '../../stores/workbench.store'
 import '../../styles/workbench.css'
 
 export function Workbench() {
-  const { activeMainView, sidebarVisible, sidebarWidth, auxiliarySidebarWidth } = useWorkbenchStore()
+  const activeMainView = useWorkbenchStore((state) => state.activeMainView)
+  const sidebarVisible = useWorkbenchStore((state) => state.sidebarVisible)
+  const sidebarWidth = useWorkbenchStore((state) => state.sidebarWidth)
   const showSidebarChrome = activeMainView === 'terminal'
-  const showAuxiliaryChrome = activeMainView === 'terminal'
 
   const gridTemplateColumns = showSidebarChrome
     ? sidebarVisible
-      ? `var(--activitybar-width) ${sidebarWidth}px 1fr ${showAuxiliaryChrome ? `${auxiliarySidebarWidth}px` : '0px'}`
-      : `var(--activitybar-width) 0px 1fr ${showAuxiliaryChrome ? `${auxiliarySidebarWidth}px` : '0px'}`
-    : `var(--activitybar-width) 0px 1fr 0px`
+      ? `var(--activitybar-width) ${sidebarWidth}px 1fr`
+      : `var(--activitybar-width) 0px 1fr`
+    : `var(--activitybar-width) 0px 1fr`
 
   return (
     <div className="workbench" style={{ gridTemplateColumns }}>
@@ -27,16 +27,10 @@ export function Workbench() {
       {showSidebarChrome && sidebarVisible && (
         <>
           <Sidebar />
-          <Sash side="left" />
+          <Sash />
         </>
       )}
       <MainArea />
-      {showAuxiliaryChrome && (
-        <>
-          <Sash side="right" />
-          <AuxiliarySidebar />
-        </>
-      )}
       <StatusBar />
       <SshConnectionDialog />
     </div>
