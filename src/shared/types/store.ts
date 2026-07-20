@@ -21,9 +21,9 @@ export interface IConnectionItem {
   port?: number
   username?: string
   authType?: ConnectionAuthType
-  encryptedPassword?: string
+  hasSavedPassword?: boolean
   privateKeyPath?: string
-  encryptedPassphrase?: string
+  hasSavedPassphrase?: boolean
 }
 
 export interface IConnectionSummary {
