@@ -1,9 +1,5 @@
 import { useEffect, useRef } from 'react'
-import {
-  createNewTerminalCommand,
-  splitActiveTerminalHorizontallyCommand,
-  splitActiveTerminalVerticallyCommand
-} from '../../commands/workbench.commands'
+import { createNewTerminalCommand } from '../../commands/workbench.commands'
 import { useTerminalStore } from '../../stores/terminal.store'
 import '../../styles/terminal.css'
 
@@ -15,20 +11,6 @@ export function TerminalTabs() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const activeTabRef = useRef<HTMLDivElement>(null)
 
-  const handleNewTab = () => {
-    createNewTerminalCommand()
-  }
-
-  const handleSplit = (direction: 'horizontal' | 'vertical') => {
-    if (direction === 'vertical') {
-      splitActiveTerminalVerticallyCommand()
-      return
-    }
-
-    splitActiveTerminalHorizontallyCommand()
-  }
-
-  // 当 activeTabId 变化时，将激活的 tab 滚动进可见区域（完整显示）
   useEffect(() => {
     const scroll = scrollRef.current
     const activeEl = activeTabRef.current
@@ -37,21 +19,17 @@ export function TerminalTabs() {
     const scrollRect = scroll.getBoundingClientRect()
     const tabRect = activeEl.getBoundingClientRect()
 
-    // tab 相对于可滚动容器左边缘的偏移（已计入当前滚动位置）
     const tabRelLeft = tabRect.left - scrollRect.left
     const tabRelRight = tabRect.right - scrollRect.left
     const containerWidth = scroll.clientWidth
 
     if (tabRelLeft < 0) {
-      // tab 左侧超出可见区域，向左滚动刚好对齐
       scroll.scrollLeft += tabRelLeft
     } else if (tabRelRight > containerWidth) {
-      // tab 右侧超出可见区域，向右滚动刚好对齐
       scroll.scrollLeft += tabRelRight - containerWidth
     }
   }, [activeTabId])
 
-  // 鼠标滚轮横向滚动
   const handleWheel = (e: React.WheelEvent) => {
     if (!scrollRef.current) return
     e.preventDefault()
@@ -83,17 +61,7 @@ export function TerminalTabs() {
         ))}
       </div>
       <div className="terminal-tabs__actions">
-        <div
-          className="terminal-tabs__action"
-          onClick={() => handleSplit('vertical')}
-          title="Split Left/Right"
-        >
-          <i className="codicon codicon-split-horizontal" />
-        </div>
-        <div className="terminal-tabs__action" onClick={() => handleSplit('horizontal')} title="Split Up/Down">
-          <i className="codicon codicon-split-vertical" />
-        </div>
-        <div className="terminal-tabs__action" onClick={handleNewTab} title="New Terminal">
+        <div className="terminal-tabs__action" onClick={() => createNewTerminalCommand()} title="New Terminal">
           <i className="codicon codicon-plus" />
         </div>
       </div>

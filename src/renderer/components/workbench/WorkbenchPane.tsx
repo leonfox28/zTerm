@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
 interface WorkbenchPaneProps {
-  variant: 'primary' | 'auxiliary'
+  variant: 'primary' | 'auxiliary' | 'embedded'
   title: ReactNode
   headerActions?: ReactNode
   contentClassName?: string

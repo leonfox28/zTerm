@@ -141,7 +141,6 @@ function getRectStyle(rect: PaneRect): CSSProperties {
 
 export function TerminalPaneTree({ tabId, rootPaneId, activePaneId, visible }: TerminalPaneTreeProps) {
   const panes = useTerminalStore((state) => state.panes)
-  const sessions = useTerminalStore((state) => state.sessions)
   const setActivePane = useTerminalStore((state) => state.setActivePane)
   const closePane = useTerminalStore((state) => state.closePane)
   const resizeSplit = useTerminalStore((state) => state.resizeSplit)
@@ -155,7 +154,7 @@ export function TerminalPaneTree({ tabId, rootPaneId, activePaneId, visible }: T
     <div className="terminal-pane-tree">
       <div className="terminal-pane-tree__layout">
         {leafLayouts.map((leaf) => {
-          const session = sessions[leaf.sessionId]
+          const session = useTerminalStore.getState().sessions[leaf.sessionId]
           if (!session) {
             return null
           }

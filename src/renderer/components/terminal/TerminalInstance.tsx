@@ -8,7 +8,8 @@ import {
   type TerminalClipboardRuntime
 } from '../../commands/terminal-clipboard.commands'
 import { useSettingsStore } from '../../stores/settings.store'
-import { useTerminalStore } from '../../stores/terminal.store'
+import { resolveShareWithPtyId, useTerminalStore } from '../../stores/terminal.store'
+import { subscribeTerminalData, subscribeTerminalExit } from '../../utils/terminal-events'
 import '@xterm/xterm/css/xterm.css'
 
 const SPLIT_RESIZE_START_EVENT = 'zterm:split-resize-start'
@@ -73,6 +74,7 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
   const session = useTerminalStore((state) => state.sessions[sessionId])
   const sessionKind = session?.kind
   const sessionConnectionId = session?.connectionId
+  const shareWithSessionId = session?.shareWithSessionId
   const hasSession = Boolean(session)
   const setSessionPtyId = useTerminalStore((state) => state.setSessionPtyId)
   const setSessionCwd = useTerminalStore((state) => state.setSessionCwd)
@@ -85,7 +87,9 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
   const fitFrameRef = useRef<number | null>(null)
   const fitDebounceRef = useRef<number | null>(null)
   const lastFitSizeRef = useRef<{ width: number; height: number } | null>(null)
-  const { fontFamily, fontSize, theme } = useSettingsStore((state) => state.settings)
+  const fontFamily = useSettingsStore((state) => state.settings.fontFamily)
+  const fontSize = useSettingsStore((state) => state.settings.fontSize)
+  const theme = useSettingsStore((state) => state.settings.theme)
 
   const clearScheduledFit = useCallback(() => {
     if (fitDebounceRef.current !== null) {
@@ -308,28 +312,11 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
       // canvas fallback
     }
 
-    const removeDataListener = window.terminalApi.onData(
-      ({ id: termId, data }: { id: number; data: string }) => {
-        if (termId === ptyIdRef.current) {
-          term.write(data)
-        }
-      }
-    )
-
-    const removeExitListener = window.terminalApi.onExit(
-      ({ id: termId }: { id: number; code: number | undefined }) => {
-        if (termId === ptyIdRef.current) {
-          term.write('\r\n[Process exited]')
-        }
-      }
-    )
-
-    const createOptions =
+    const createOptionsBase =
       sessionKind === 'ssh'
         ? {
             cols: term.cols,
-            rows: term.rows,
-            ssh: sessionConnectionId ? { connectionId: sessionConnectionId } : undefined
+            rows: term.rows
           }
         : {
             cols: term.cols,
@@ -340,10 +327,92 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
 
     let disposed = false
     let createTimer: number | null = null
+    let unsubscribeData: (() => void) | null = null
+    let unsubscribeExit: (() => void) | null = null
+    const shareWaitStartedAt = Date.now()
 
     const startTerminal = () => {
+      if (disposed) {
+        return
+      }
+
+      if (sessionKind === 'ssh') {
+        if (!sessionConnectionId) {
+          term.writeln('\r\n[Failed to start terminal: missing SSH connection id]')
+          return
+        }
+
+        const currentSession = useTerminalStore.getState().sessions[sessionId]
+        const shareWithPtyId =
+          currentSession && shareWithSessionId
+            ? resolveShareWithPtyId(useTerminalStore.getState(), currentSession)
+            : undefined
+
+        if (shareWithSessionId && shareWithPtyId == null) {
+          if (Date.now() - shareWaitStartedAt > 15000) {
+            term.writeln('\r\n[Failed to start terminal: source SSH connection is not available]')
+            return
+          }
+
+          createTimer = window.setTimeout(startTerminal, 50)
+          return
+        }
+
+        window.terminalApi
+          .create({
+            cols: term.cols,
+            rows: term.rows,
+            ssh: {
+              connectionId: sessionConnectionId,
+              shareWithPtyId
+            }
+          })
+          .then((ptyId: number) => {
+            if (disposed) {
+              window.terminalApi.kill(ptyId)
+              return
+            }
+
+            ptyIdRef.current = ptyId
+            setSessionPtyId(sessionId, ptyId)
+            unsubscribeData = subscribeTerminalData(ptyId, (data) => {
+              term.write(data)
+            })
+            unsubscribeExit = subscribeTerminalExit(ptyId, () => {
+              term.write('\r\n[Process exited]')
+              if (ptyIdRef.current === ptyId) {
+                ptyIdRef.current = null
+              }
+              clearSessionRuntime(sessionId)
+              unsubscribeData?.()
+              unsubscribeData = null
+            })
+
+            term.onData((data) => {
+              if (ptyIdRef.current !== null) {
+                window.terminalApi.write(ptyIdRef.current, data)
+              }
+            })
+
+            term.onResize(({ cols, rows }) => {
+              if (ptyIdRef.current !== null) {
+                window.terminalApi.resize(ptyIdRef.current, cols, rows)
+              }
+            })
+          })
+          .catch((error: unknown) => {
+            if (disposed) {
+              return
+            }
+
+            const message = error instanceof Error ? error.message : 'Unknown error'
+            term.writeln(`\r\n[Failed to start terminal: ${message}]`)
+          })
+        return
+      }
+
       window.terminalApi
-        .create(createOptions)
+        .create(createOptionsBase)
         .then((ptyId: number) => {
           if (disposed) {
             window.terminalApi.kill(ptyId)
@@ -352,6 +421,18 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
 
           ptyIdRef.current = ptyId
           setSessionPtyId(sessionId, ptyId)
+          unsubscribeData = subscribeTerminalData(ptyId, (data) => {
+            term.write(data)
+          })
+          unsubscribeExit = subscribeTerminalExit(ptyId, () => {
+            term.write('\r\n[Process exited]')
+            if (ptyIdRef.current === ptyId) {
+              ptyIdRef.current = null
+            }
+            clearSessionRuntime(sessionId)
+            unsubscribeData?.()
+            unsubscribeData = null
+          })
 
           term.onData((data) => {
             if (ptyIdRef.current !== null) {
@@ -393,8 +474,8 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
       }
       clearScheduledFit()
       lastFitSizeRef.current = null
-      removeDataListener()
-      removeExitListener()
+      unsubscribeData?.()
+      unsubscribeExit?.()
       selectionChangeDisposable.dispose()
       unregisterClipboardRuntime()
       for (const handler of oscHandlers) {
@@ -422,7 +503,8 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
     sessionKind,
     sessionId,
     setSessionCwd,
-    setSessionPtyId
+    setSessionPtyId,
+    shareWithSessionId
   ])
 
   useEffect(() => {

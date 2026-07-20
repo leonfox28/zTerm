@@ -9,7 +9,8 @@ const bottomItems: Array<{ id: MainViewId; icon: string; title: string }> = [
 ]
 
 export function ActivityBar() {
-  const { activeMainView, setActiveView } = useWorkbenchStore()
+  const activeMainView = useWorkbenchStore((state) => state.activeMainView)
+  const setActiveView = useWorkbenchStore((state) => state.setActiveView)
 
   const renderItem = (item: { id: MainViewId; icon: string; title: string }) => (
     <div

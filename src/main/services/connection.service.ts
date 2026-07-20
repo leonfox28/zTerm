@@ -32,7 +32,29 @@ function decryptIfPresent(value?: string): string | undefined {
     return undefined
   }
 
-  return safeStorage.decryptString(Buffer.from(value, 'base64'))
+  try {
+    return safeStorage.decryptString(Buffer.from(value, 'base64'))
+  } catch {
+    return undefined
+  }
+}
+
+function resolveEncryptedCredential(options: {
+  shouldSave: boolean
+  nextValue: string | undefined
+  existingEncrypted: string | undefined
+}): { encrypted?: string; warning?: string } {
+  if (!options.shouldSave) {
+    return {}
+  }
+
+  if (options.nextValue) {
+    return encryptIfNeeded(options.nextValue, true)
+  }
+
+  return {
+    encrypted: options.existingEncrypted
+  }
 }
 
 function toSummary(connection: IConnectionItem): IConnectionSummary {
@@ -73,12 +95,18 @@ export class ConnectionService {
   saveConnection(input: IConnectionUpsertInput): IConnectionSaveResult {
     const connections = this.storeService.get('connections')
     const connectionId = input.id ?? createConnectionId()
+    const existing = connections.find((connection) => connection.id === connectionId)
 
-    const passwordResult = encryptIfNeeded(input.password, input.savePassword && input.authType === 'password')
-    const passphraseResult = encryptIfNeeded(
-      input.passphrase,
-      input.savePassphrase && input.authType === 'privateKey'
-    )
+    const passwordResult = resolveEncryptedCredential({
+      shouldSave: input.savePassword && input.authType === 'password',
+      nextValue: input.password,
+      existingEncrypted: existing?.encryptedPassword
+    })
+    const passphraseResult = resolveEncryptedCredential({
+      shouldSave: input.savePassphrase && input.authType === 'privateKey',
+      nextValue: input.passphrase,
+      existingEncrypted: existing?.encryptedPassphrase
+    })
 
     const nextConnection: IConnectionItem = {
       id: connectionId,

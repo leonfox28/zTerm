@@ -15,6 +15,8 @@ export interface TerminalSession {
   title: string
   kind: TerminalSessionKind
   connectionId?: string
+  /** For SSH splits: reuse the SSH client owned by this session. */
+  shareWithSessionId?: string
   ptyId?: number
   cwd?: string
 }
@@ -175,6 +177,71 @@ function createTabRemovalState(
   }
 }
 
+function findTabIdForSession(
+  state: Pick<TerminalState, 'tabs' | 'panes'>,
+  sessionId: string
+): number | null {
+  for (const tab of state.tabs) {
+    const sessionIds: string[] = []
+    collectPaneTree(state.panes, tab.rootPaneId, [], sessionIds)
+    if (sessionIds.includes(sessionId)) {
+      return tab.id
+    }
+  }
+
+  return null
+}
+
+/** Resolve a live pty that owns/shares the SSH client for a split shell. */
+export function resolveShareWithPtyId(
+  state: Pick<TerminalState, 'tabs' | 'panes' | 'sessions'>,
+  session: TerminalSession
+): number | undefined {
+  if (session.kind !== 'ssh' || !session.shareWithSessionId) {
+    return undefined
+  }
+
+  const preferred = state.sessions[session.shareWithSessionId]?.ptyId
+  if (preferred != null) {
+    return preferred
+  }
+
+  const tabId = findTabIdForSession(state, session.id)
+  if (tabId == null) {
+    return undefined
+  }
+
+  return resolveSshPtyIdForTab(state, tabId, session.id)
+}
+
+/** Any live SSH pty in the tab — used for shared SFTP access. */
+export function resolveSshPtyIdForTab(
+  state: Pick<TerminalState, 'tabs' | 'panes' | 'sessions'>,
+  tabId: number,
+  excludeSessionId?: string
+): number | undefined {
+  const tab = state.tabs.find((item) => item.id === tabId)
+  if (!tab) {
+    return undefined
+  }
+
+  const sessionIds: string[] = []
+  collectPaneTree(state.panes, tab.rootPaneId, [], sessionIds)
+
+  for (const sessionId of sessionIds) {
+    if (sessionId === excludeSessionId) {
+      continue
+    }
+
+    const session = state.sessions[sessionId]
+    if (session?.kind === 'ssh' && session.ptyId != null) {
+      return session.ptyId
+    }
+  }
+
+  return undefined
+}
+
 export const useTerminalStore = create<TerminalState>((set, get) => ({
   tabs: [],
   activeTabId: null,
@@ -297,7 +364,9 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
             id: newSessionId,
             title: sourceSession?.title ?? tab.title,
             kind: sourceSession?.kind ?? 'local',
-            connectionId: sourceSession?.connectionId
+            connectionId: sourceSession?.connectionId,
+            shareWithSessionId:
+              sourceSession?.kind === 'ssh' ? sourceSession.shareWithSessionId ?? sourceSession.id : undefined
           }
         }
       }

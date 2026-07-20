@@ -35,7 +35,8 @@ function TreeItem({
   node: ConnectionItem | ConnectionFolder
   depth: number
 }) {
-  const { toggleFolder, deleteConnection } = useConnectionsStore()
+  const toggleFolder = useConnectionsStore((state) => state.toggleFolder)
+  const deleteConnection = useConnectionsStore((state) => state.deleteConnection)
 
   if (isFolder(node)) {
     return (
@@ -91,7 +92,8 @@ function TreeItem({
 }
 
 export function ConnectionTree() {
-  const { folders, connections } = useConnectionsStore()
+  const folders = useConnectionsStore((state) => state.folders)
+  const connections = useConnectionsStore((state) => state.connections)
 
   const rootConnections = connections.filter((connection) => !connection.folderId)
 

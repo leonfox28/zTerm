@@ -6,7 +6,8 @@ export type MainViewId = 'terminal' | 'settings'
 interface WorkbenchState {
   sidebarVisible: boolean
   sidebarWidth: number
-  auxiliarySidebarWidth: number
+  tabExplorerVisible: boolean
+  tabExplorerWidth: number
   activeViewId: MainViewId
   activeMainView: MainViewId
   connectionDialogOpen: boolean
@@ -14,7 +15,8 @@ interface WorkbenchState {
   statusMessage: string | null
   toggleSidebar: () => void
   setSidebarWidth: (width: number) => void
-  setAuxiliarySidebarWidth: (width: number) => void
+  toggleTabExplorer: () => void
+  setTabExplorerWidth: (width: number) => void
   setActiveView: (id: MainViewId) => void
   openSettingsView: () => void
   openTerminalView: () => void
@@ -26,7 +28,8 @@ interface WorkbenchState {
 export const useWorkbenchStore = create<WorkbenchState>((set) => ({
   sidebarVisible: true,
   sidebarWidth: LAYOUT.sidebar.defaultWidth,
-  auxiliarySidebarWidth: LAYOUT.auxiliarySidebar.defaultWidth,
+  tabExplorerVisible: true,
+  tabExplorerWidth: LAYOUT.tabExplorer.defaultWidth,
   activeViewId: 'terminal',
   activeMainView: 'terminal',
   connectionDialogOpen: false,
@@ -44,12 +47,11 @@ export const useWorkbenchStore = create<WorkbenchState>((set) => ({
     }
   },
 
-  setAuxiliarySidebarWidth: (width) => {
-    const clamped = Math.max(
-      LAYOUT.auxiliarySidebar.minWidth,
-      Math.min(LAYOUT.auxiliarySidebar.maxWidth, width)
-    )
-    set({ auxiliarySidebarWidth: clamped })
+  toggleTabExplorer: () => set((state) => ({ tabExplorerVisible: !state.tabExplorerVisible })),
+
+  setTabExplorerWidth: (width) => {
+    const clamped = Math.max(LAYOUT.tabExplorer.minWidth, Math.min(LAYOUT.tabExplorer.maxWidth, width))
+    set({ tabExplorerWidth: clamped })
   },
 
   setActiveView: (id) =>

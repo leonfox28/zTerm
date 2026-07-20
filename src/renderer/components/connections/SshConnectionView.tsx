@@ -226,8 +226,12 @@ export function SshConnectionForm({
 }
 
 export function SshConnectionDialog() {
-  const { folders, connections, saveConnection } = useConnectionsStore()
-  const { connectionDialogOpen, editingConnectionId, closeConnectionDialog } = useWorkbenchStore()
+  const folders = useConnectionsStore((state) => state.folders)
+  const connections = useConnectionsStore((state) => state.connections)
+  const saveConnection = useConnectionsStore((state) => state.saveConnection)
+  const connectionDialogOpen = useWorkbenchStore((state) => state.connectionDialogOpen)
+  const editingConnectionId = useWorkbenchStore((state) => state.editingConnectionId)
+  const closeConnectionDialog = useWorkbenchStore((state) => state.closeConnectionDialog)
   const editingConnection = useMemo(
     () => connections.find((connection) => connection.id === editingConnectionId) ?? null,
     [connections, editingConnectionId]
