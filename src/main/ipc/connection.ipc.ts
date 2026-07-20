@@ -13,6 +13,6 @@ export function registerConnectionIpc(connectionService: ConnectionService) {
   })
 
   ipcMain.handle(IPC_CHANNELS.CONNECTIONS_DELETE, (_event, id: string) => {
-    connectionService.deleteConnection(id)
+    return connectionService.deleteConnection(id)
   })
 }

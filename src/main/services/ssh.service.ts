@@ -29,11 +29,11 @@ export function getSshConnection(connectionService: ConnectionService, connectio
   return connection
 }
 
-export function createSshConnectConfig(
+export async function createSshConnectConfig(
   connectionService: ConnectionService,
   connectionId: string,
   onDebug?: (message: string) => void
-): { connection: IConnectionItem; config: ConnectConfig } {
+): Promise<{ connection: IConnectionItem; config: ConnectConfig }> {
   const connection = getSshConnection(connectionService, connectionId)
   const config: ConnectConfig = {
     host: connection.host,
@@ -56,12 +56,12 @@ export function createSshConnectConfig(
       )
     }
 
-    const passphrase = connectionService.resolvePassphrase(connectionId)
+    const passphrase = await connectionService.resolvePassphrase(connectionId)
     if (passphrase) {
       config.passphrase = passphrase
     }
   } else {
-    const password = connectionService.resolvePassword(connectionId)
+    const password = await connectionService.resolvePassword(connectionId)
     if (!password) {
       throw new Error('No saved password is available for this SSH connection')
     }
@@ -250,99 +250,103 @@ export class SshService {
         resolve(id)
       }
 
-      let config: ConnectConfig
+      void (async () => {
+        let config: ConnectConfig
 
-      try {
-        const resolved = createSshConnectConfig(this.connectionService, connectionId, (message) => {
-          pushDebugLog(message)
-        })
-        endpoint = `${resolved.connection.username}@${resolved.connection.host}:${resolved.connection.port ?? 22}`
-        config = resolved.config
-      } catch (error) {
-        rejectOnce(error instanceof Error ? error.message : 'Failed to prepare SSH connection')
-        return
-      }
+        try {
+          const resolved = await createSshConnectConfig(this.connectionService, connectionId, (message) => {
+            pushDebugLog(message)
+          })
+          endpoint = `${resolved.connection.username}@${resolved.connection.host}:${resolved.connection.port ?? 22}`
+          config = resolved.config
+        } catch (error) {
+          rejectOnce(error instanceof Error ? error.message : 'Failed to prepare SSH connection')
+          return
+        }
 
-      client.on('ready', () => {
-        ready = true
+        client.on('ready', () => {
+          ready = true
 
-        client.exec(
-          createSshShellLaunchCommand(),
-          {
-            pty: {
-              cols: options.cols,
-              rows: options.rows,
-              term: 'xterm-256color'
+          client.exec(
+            createSshShellLaunchCommand(),
+            {
+              pty: {
+                cols: options.cols,
+                rows: options.rows,
+                term: 'xterm-256color'
+              },
+              env: {
+                TERM_PROGRAM: 'zterm'
+              }
             },
-            env: {
-              TERM_PROGRAM: 'zterm'
-            }
-          },
-          (error, stream) => {
-            if (error || !stream) {
-              rejectOnce('SSH handshake succeeded but opening the remote terminal failed', error?.message)
-              return
-            }
+            (error, stream) => {
+              if (error || !stream) {
+                rejectOnce('SSH handshake succeeded but opening the remote terminal failed', error?.message)
+                return
+              }
 
-            if (settled) {
-              client.end()
-              return
-            }
-
-            this.clients.set(sharedClientId, {
-              client,
-              sftp: null,
-              sftpError: null,
-              shellIds: new Set(),
-              endpoint
-            })
-
-            // Attach shell I/O immediately so banner/prompt are not lost while SFTP starts.
-            this.attachShell(id, sharedClientId, stream, onData, onExit)
-
-            client.sftp((sftpError, sftp) => {
-              const shared = this.clients.get(sharedClientId)
-              if (!shared) {
+              if (settled) {
                 client.end()
                 return
               }
 
-              if (sftpError || !sftp) {
-                shared.sftp = null
-                shared.sftpError = sftpError?.message ?? 'Failed to start SFTP session'
-              } else {
-                shared.sftp = sftp
-                shared.sftpError = null
-              }
+              this.clients.set(sharedClientId, {
+                client,
+                sftp: null,
+                sftpError: null,
+                shellIds: new Set(),
+                endpoint
+              })
 
-              resolveOnce()
-            })
-          }
-        )
-      })
+              // Attach shell I/O immediately so banner/prompt are not lost while SFTP starts.
+              this.attachShell(id, sharedClientId, stream, onData, onExit)
 
-      client.on('error', (error) => {
-        if (!ready) {
-          rejectOnce('SSH handshake failed', error.message)
-          return
-        }
+              client.sftp((sftpError, sftp) => {
+                const shared = this.clients.get(sharedClientId)
+                if (!shared) {
+                  client.end()
+                  return
+                }
 
-        this.teardownSharedClient(sharedClientId, undefined)
-      })
+                if (sftpError || !sftp) {
+                  shared.sftp = null
+                  shared.sftpError = sftpError?.message ?? 'Failed to start SFTP session'
+                } else {
+                  shared.sftp = sftp
+                  shared.sftpError = null
+                }
 
-      client.on('close', () => {
-        if (!ready) {
-          rejectOnce(
-            'SSH server closed the connection before handshake completed',
-            'Check that the host, port, and SSH service are correct and reachable'
+                resolveOnce()
+              })
+            }
           )
-          return
-        }
+        })
 
-        this.teardownSharedClient(sharedClientId, 0)
+        client.on('error', (error) => {
+          if (!ready) {
+            rejectOnce('SSH handshake failed', error.message)
+            return
+          }
+
+          this.teardownSharedClient(sharedClientId, undefined)
+        })
+
+        client.on('close', () => {
+          if (!ready) {
+            rejectOnce(
+              'SSH server closed the connection before handshake completed',
+              'Check that the host, port, and SSH service are correct and reachable'
+            )
+            return
+          }
+
+          this.teardownSharedClient(sharedClientId, 0)
+        })
+
+        client.connect(config)
+      })().catch((error: unknown) => {
+        rejectOnce(error instanceof Error ? error.message : 'Failed to start SSH connection')
       })
-
-      client.connect(config)
     })
   }
 

@@ -105,27 +105,31 @@ export function SshConnectionForm({
       return
     }
 
-    const result = await saveConnection({
-      id: editingConnection?.id,
-      name: form.name.trim() || `${form.username}@${form.host}`,
-      folderId: form.folderId || undefined,
-      host: form.host.trim(),
-      port,
-      username: form.username.trim(),
-      authType: form.authType,
-      password: form.authType === 'password' ? form.password : undefined,
-      savePassword: form.authType === 'password' && form.savePassword,
-      privateKeyPath: form.authType === 'privateKey' ? form.privateKeyPath.trim() : undefined,
-      passphrase: form.authType === 'privateKey' ? form.passphrase : undefined,
-      savePassphrase: form.authType === 'privateKey' && form.savePassphrase
-    })
+    try {
+      const result = await saveConnection({
+        id: editingConnection?.id,
+        name: form.name.trim() || `${form.username}@${form.host}`,
+        folderId: form.folderId || undefined,
+        host: form.host.trim(),
+        port,
+        username: form.username.trim(),
+        authType: form.authType,
+        password: form.authType === 'password' ? form.password : undefined,
+        savePassword: form.authType === 'password' && form.savePassword,
+        privateKeyPath: form.authType === 'privateKey' ? form.privateKeyPath.trim() : undefined,
+        passphrase: form.authType === 'privateKey' ? form.passphrase : undefined,
+        savePassphrase: form.authType === 'privateKey' && form.savePassphrase
+      })
 
-    if (result.warning) {
-      setWarning(result.warning)
-      return
+      if (result.warning) {
+        setWarning(result.warning)
+        return
+      }
+
+      onSuccess?.()
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Failed to save connection.')
     }
-
-    onSuccess?.()
   }
 
   return (

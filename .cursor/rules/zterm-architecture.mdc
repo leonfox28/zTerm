@@ -9,7 +9,7 @@ alwaysApply: false
 - Main owns PTY, SSH, SFTP, credentials, native menus, and persistence.
 - Renderer state lives in Zustand stores under `src/renderer/stores/`.
 - Preload bridges only: `src/preload/index.ts`. Shared IPC/types: `src/shared/`.
-- Do not put secrets in renderer state; credentials stay in main via `safeStorage`.
+- Do not put secrets in renderer state or config files; main stores them directly in the OS credential store.
 - Keep terminal/session concerns separate from workbench layout concerns.
 
 ## Key entry points

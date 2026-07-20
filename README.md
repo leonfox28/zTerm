@@ -6,7 +6,7 @@
 
 - 本地 PTY 终端（`node-pty`、login shell、`xterm-256color`）
 - SSH 终端（`ssh2`）与可保存连接（创建/编辑/删除、文件夹分组）
-- 密码/私钥元数据 + Electron `safeStorage` 凭证存储
+- 密码与私钥口令直接存入系统凭证库（macOS Keychain、Windows Credential Manager、Linux Secret Service）
 - 多标签、分屏、拖拽调整；原生右键菜单
 - Workbench：Activity Bar、连接侧栏、终端主区、Explorer 辅助侧栏、Status Bar、Settings
 - 统一本地/SSH Explorer：浏览、上传、下载、详情；错误走 Status Bar
@@ -23,7 +23,7 @@
 | Terminal | xterm.js v6 + node-pty |
 | SSH / SFTP | ssh2 |
 | State | Zustand |
-| Persistence | electron-store + `safeStorage` |
+| Persistence | electron-store + `@napi-rs/keyring` |
 | Icons | `@vscode/codicons` |
 | Build | electron-vite 5 + Vite 7 + electron-builder |
 
@@ -69,7 +69,7 @@ Main (PTY / SSH / SFTP / store / menus)
 Renderer (Zustand stores + React workbench/terminal/settings)
 ```
 
-- Main 拥有进程、会话、凭证与持久化；Renderer 不持有密钥
+- Main 拥有进程、会话与系统凭证库访问；Renderer 和配置文件不持有凭证明文或密文
 - Preload 暴露 `terminalApi`、`storeApi`、`connectionsApi`、`sftpApi`、`localFileTreeApi`、`clipboardApi`、`contextMenuApi`、`updateApi`
 - 共享通道：`src/shared/ipc-channels.ts`
 - SSH 启动使用已保存的 `connectionId`
