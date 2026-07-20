@@ -24,8 +24,9 @@ function createExplorerContext(
   }
 
   if (session.kind === 'ssh' && session.connectionId) {
+    // Prefer any live shell in the tab so SFTP survives after the focused pane exits.
     const ptyId =
-      session.ptyId ?? resolveSshPtyIdForTab(useTerminalStore.getState(), tabId, session.id)
+      resolveSshPtyIdForTab(useTerminalStore.getState(), tabId) ?? session.ptyId
 
     return {
       key: `ssh:tab:${tabId}`,

@@ -380,6 +380,12 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
             })
             unsubscribeExit = subscribeTerminalExit(ptyId, () => {
               term.write('\r\n[Process exited]')
+              if (ptyIdRef.current === ptyId) {
+                ptyIdRef.current = null
+              }
+              clearSessionRuntime(sessionId)
+              unsubscribeData?.()
+              unsubscribeData = null
             })
 
             term.onData((data) => {
@@ -420,6 +426,12 @@ export function TerminalInstance({ sessionId, active, visible }: TerminalInstanc
           })
           unsubscribeExit = subscribeTerminalExit(ptyId, () => {
             term.write('\r\n[Process exited]')
+            if (ptyIdRef.current === ptyId) {
+              ptyIdRef.current = null
+            }
+            clearSessionRuntime(sessionId)
+            unsubscribeData?.()
+            unsubscribeData = null
           })
 
           term.onData((data) => {
